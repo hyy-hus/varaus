@@ -20,3 +20,9 @@ class ResourceCreate(ResourceBase):
 
 class ResourceRead(ResourceBase):
     id: uuid.UUID
+
+
+class ResourceUpdate(SQLModel):
+    name: str | None = None
+    description: str | None = None
+    is_active: bool | None = None
