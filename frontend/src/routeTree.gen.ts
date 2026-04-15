@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ResourcesIndexRouteImport } from './routes/resources.index'
+import { Route as ResourcesCreateRouteImport } from './routes/resources.create'
 
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
@@ -22,31 +24,49 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResourcesIndexRoute = ResourcesIndexRouteImport.update({
+  id: '/resources/',
+  path: '/resources/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResourcesCreateRoute = ResourcesCreateRouteImport.update({
+  id: '/resources/create',
+  path: '/resources/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/resources/create': typeof ResourcesCreateRoute
+  '/resources/': typeof ResourcesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/resources/create': typeof ResourcesCreateRoute
+  '/resources': typeof ResourcesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/resources/create': typeof ResourcesCreateRoute
+  '/resources/': typeof ResourcesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about'
+  fullPaths: '/' | '/about' | '/resources/create' | '/resources/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about'
-  id: '__root__' | '/' | '/about'
+  to: '/' | '/about' | '/resources/create' | '/resources'
+  id: '__root__' | '/' | '/about' | '/resources/create' | '/resources/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  ResourcesCreateRoute: typeof ResourcesCreateRoute
+  ResourcesIndexRoute: typeof ResourcesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +85,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/resources/': {
+      id: '/resources/'
+      path: '/resources'
+      fullPath: '/resources/'
+      preLoaderRoute: typeof ResourcesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/resources/create': {
+      id: '/resources/create'
+      path: '/resources/create'
+      fullPath: '/resources/create'
+      preLoaderRoute: typeof ResourcesCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  ResourcesCreateRoute: ResourcesCreateRoute,
+  ResourcesIndexRoute: ResourcesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
