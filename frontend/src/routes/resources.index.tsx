@@ -2,7 +2,6 @@ import { useReadResources } from '#/api/endpoints/resources/resources';
 import { createFileRoute } from '@tanstack/react-router'
 import { Plus, AlertCircle } from 'lucide-react';
 
-// shadcn-ui imports (adjust the paths based on your setup, usually @/components/...)
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,6 +14,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '#/components/ui/card';
 
 export const Route = createFileRoute('/resources/')({
     component: ResourcesPage,
@@ -52,18 +52,19 @@ function ResourcesPage() {
     }
 
     return (
-        <div className="max-w-4xl mx-auto">
-            {/* Header Area */}
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold tracking-tight">Resources</h1>
-                <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    New Resource
-                </Button>
-            </div>
+        <Card>
+            <CardHeader>
+                <CardTitle>Resources</CardTitle>
+                <CardDescription>List all of the resources in the system</CardDescription>
+                <CardAction>
+                    <Button>
+                        <Plus />
+                        New Resource
+                    </Button>
+                </CardAction>
+            </CardHeader>
 
-            {/* Table Area */}
-            <div className="rounded-md border bg-card text-card-foreground shadow-sm">
+            <CardContent>
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -79,7 +80,7 @@ function ResourcesPage() {
                                     <TableCell className="font-medium">
                                         {resource.name}
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">
+                                    <TableCell className="text-muted-foreground max-w-md overflow-x-clip text-ellipsis">
                                         {resource.description || (
                                             <span className="italic">No description</span>
                                         )}
@@ -108,7 +109,7 @@ function ResourcesPage() {
                         )}
                     </TableBody>
                 </Table>
-            </div>
-        </div>
+            </CardContent>
+        </Card>
     );
 }
