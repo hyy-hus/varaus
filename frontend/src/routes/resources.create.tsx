@@ -1,4 +1,4 @@
-import { CreateResourceForm } from '#/components/forms/createResource'
+import { CreateResourceForm } from '#/features/resources/components/CreateResourceForm'
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/resources/create')({
@@ -9,7 +9,8 @@ export const Route = createFileRoute('/resources/create')({
 })
 
 function RouteComponent() {
-    return (<div>
-        <CreateResourceForm />
-    </div>)
+    return (
+        <div>
+            <CreateResourceForm />
+        </div>)
 }

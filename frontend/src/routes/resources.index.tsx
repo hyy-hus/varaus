@@ -69,7 +69,7 @@ function ResourcesPage() {
             <CardContent>
                 <Table>
                     <TableHeader>
-                        <TableRow>
+                        <TableRow className='hover:bg-inherit'>
                             <TableHead>Name</TableHead>
                             <TableHead>Description</TableHead>
                             <TableHead className='text-right' >Status</TableHead>
@@ -80,7 +80,7 @@ function ResourcesPage() {
                             response.data.map((resource) => (
                                 <TableRow key={resource.id}>
                                     <TableCell className="font-medium">
-                                        {resource.name}
+                                        <Link to="/resources/$resourceId/update" params={{ resourceId: resource.id }}>{resource.name}</Link>
                                     </TableCell>
                                     <TableCell className="text-muted-foreground max-w-md overflow-x-clip text-ellipsis">
                                         {resource.description || (

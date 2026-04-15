@@ -6,6 +6,10 @@
         "submitError": "Error while submitting. Please try again",
         "home": "Home"
     },
+    "validation": {
+        "min": "Has to be at least {{length}} long",
+        "max": "Can't exceed {{length}} characters"
+    },
     "resources": {
         "title": "Resources",
         "createTitle": "Create a resource",
