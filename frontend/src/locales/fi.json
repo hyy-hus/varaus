@@ -5,6 +5,7 @@
         "loading": "Ladataan..."
     },
     "resources": {
+        "title": "Resurssit",
         "createTitle": "Luo resurssi",
         "createDescription": "Lisää kalenteriin uusi varattava tila, väline tai muu resurssi",
         "nameLabel": "Nimi",
