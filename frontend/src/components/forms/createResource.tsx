@@ -10,6 +10,7 @@ import { useCreateResource } from "#/api/endpoints/resources/resources"
 import { Button } from "../ui/button"
 import type { ResourceCreate } from "#/api/models"
 import { toast } from "sonner"
+import { useTranslation } from "react-i18next"
 
 const createResourceSchema = z.object({
     name: z.string()
@@ -24,6 +25,8 @@ const createResourceSchema = z.object({
 type ResourceFromValues = z.infer<typeof createResourceSchema>
 
 export function CreateResourceForm() {
+    const { t } = useTranslation();
+
     const form = useForm<ResourceFromValues>({
         resolver: zodResolver(createResourceSchema),
         mode: "onTouched",
@@ -41,12 +44,12 @@ export function CreateResourceForm() {
             { data: data },
             {
                 onSuccess: () => {
-                    toast(`Resource "${data.name}" created`);
+                    toast.success(t('resources.successToast', { name: data.name }));
                     form.reset();
                 },
                 onError: (error) => {
                     console.error("Error while submitting form:", error);
-                    toast.error("Failed to create resource. Please try again.");
+                    toast.error(t('common.submitError'));
                 }
             }
         )
@@ -69,17 +72,17 @@ export function CreateResourceForm() {
                             render={({ field, fieldState }) => (
                                 <Field data-invalid={fieldState.invalid}>
                                     <FieldLabel htmlFor="create-resource-form-name">
-                                        Name
+                                        {t('resources.nameLabel')}
                                     </FieldLabel>
                                     <Input
                                         {...field}
                                         id="create-resource-form-name"
                                         aria-invalid={fieldState.invalid}
-                                        placeholder="Meeting room A"
+                                        placeholder={t('resources.namePlaceholder')}
                                         autoComplete="off"
                                     />
                                     <FieldDescription>
-                                        This is the public name of the resource, visible for all users
+                                        {t('resources.nameDescription')}
                                     </FieldDescription>
                                     {fieldState.invalid && (
                                         <FieldError errors={[fieldState.error]} />

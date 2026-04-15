@@ -1,0 +1,14 @@
+{
+    "common": {
+        "submit": "Lähetä",
+        "clear": "Tyhjennä",
+        "loading": "Ladataan..."
+    },
+    "resources": {
+        "createTitle": "Luo resurssi",
+        "createDescription": "Lisää kalenteriin uusi varattava tila, väline tai muu resurssi",
+        "nameLabel": "Nimi",
+        "namePlaceholder": "esim. Kokoushuone A",
+        "successToast": "Resurssi \"{{name}}\" luotiin onnistuneesti!"
+    }
+}
