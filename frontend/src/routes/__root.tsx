@@ -6,8 +6,12 @@ import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import '../styles.css'
 import Header from '#/components/Header'
 import { Toaster } from '#/components/ui/sonner'
+import { GlobalBreadcrumbs } from '#/components/globalBreadcrumbs'
 
 export const Route = createRootRoute({
+    staticData: {
+        breadcrumb: 'common.home'
+    },
     component: RootComponent,
 })
 
@@ -15,6 +19,7 @@ function RootComponent() {
     return (
         <>
             <Header />
+            <GlobalBreadcrumbs />
             <main className='p-8'>
                 <Outlet />
             </main>

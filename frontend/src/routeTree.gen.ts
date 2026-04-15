@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResourcesRouteImport } from './routes/resources'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ResourcesIndexRouteImport } from './routes/resources.index'
 import { Route as ResourcesCreateRouteImport } from './routes/resources.create'
 
+const ResourcesRoute = ResourcesRouteImport.update({
+  id: '/resources',
+  path: '/resources',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -25,19 +31,20 @@ const IndexRoute = IndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResourcesIndexRoute = ResourcesIndexRouteImport.update({
-  id: '/resources/',
-  path: '/resources/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => ResourcesRoute,
 } as any)
 const ResourcesCreateRoute = ResourcesCreateRouteImport.update({
-  id: '/resources/create',
-  path: '/resources/create',
-  getParentRoute: () => rootRouteImport,
+  id: '/create',
+  path: '/create',
+  getParentRoute: () => ResourcesRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/resources': typeof ResourcesRouteWithChildren
   '/resources/create': typeof ResourcesCreateRoute
   '/resources/': typeof ResourcesIndexRoute
 }
@@ -51,26 +58,39 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/resources': typeof ResourcesRouteWithChildren
   '/resources/create': typeof ResourcesCreateRoute
   '/resources/': typeof ResourcesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/resources/create' | '/resources/'
+  fullPaths: '/' | '/about' | '/resources' | '/resources/create' | '/resources/'
   fileRoutesByTo: FileRoutesByTo
   to: '/' | '/about' | '/resources/create' | '/resources'
-  id: '__root__' | '/' | '/about' | '/resources/create' | '/resources/'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/resources'
+    | '/resources/create'
+    | '/resources/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
-  ResourcesCreateRoute: typeof ResourcesCreateRoute
-  ResourcesIndexRoute: typeof ResourcesIndexRoute
+  ResourcesRoute: typeof ResourcesRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/resources': {
+      id: '/resources'
+      path: '/resources'
+      fullPath: '/resources'
+      preLoaderRoute: typeof ResourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -87,26 +107,39 @@ declare module '@tanstack/react-router' {
     }
     '/resources/': {
       id: '/resources/'
-      path: '/resources'
+      path: '/'
       fullPath: '/resources/'
       preLoaderRoute: typeof ResourcesIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ResourcesRoute
     }
     '/resources/create': {
       id: '/resources/create'
-      path: '/resources/create'
+      path: '/create'
       fullPath: '/resources/create'
       preLoaderRoute: typeof ResourcesCreateRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ResourcesRoute
     }
   }
 }
 
+interface ResourcesRouteChildren {
+  ResourcesCreateRoute: typeof ResourcesCreateRoute
+  ResourcesIndexRoute: typeof ResourcesIndexRoute
+}
+
+const ResourcesRouteChildren: ResourcesRouteChildren = {
+  ResourcesCreateRoute: ResourcesCreateRoute,
+  ResourcesIndexRoute: ResourcesIndexRoute,
+}
+
+const ResourcesRouteWithChildren = ResourcesRoute._addFileChildren(
+  ResourcesRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
-  ResourcesCreateRoute: ResourcesCreateRoute,
-  ResourcesIndexRoute: ResourcesIndexRoute,
+  ResourcesRoute: ResourcesRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,5 +1,5 @@
 import { useReadResources } from '#/api/endpoints/resources/resources';
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { Plus, AlertCircle } from 'lucide-react';
 
 import { Button } from "@/components/ui/button";
@@ -57,9 +57,11 @@ function ResourcesPage() {
                 <CardTitle>Resources</CardTitle>
                 <CardDescription>List all of the resources in the system</CardDescription>
                 <CardAction>
-                    <Button>
-                        <Plus />
-                        New Resource
+                    <Button asChild>
+                        <Link to="/resources/create">
+                            <Plus />
+                            New Resource
+                        </Link>
                     </Button>
                 </CardAction>
             </CardHeader>
@@ -82,7 +84,7 @@ function ResourcesPage() {
                                     </TableCell>
                                     <TableCell className="text-muted-foreground max-w-md overflow-x-clip text-ellipsis">
                                         {resource.description || (
-                                            <span className="italic">No description</span>
+                                            <span className="italic text-muted-foreground/50">No description</span>
                                         )}
                                     </TableCell>
                                     <TableCell className='text-right' >
