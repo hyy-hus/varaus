@@ -1,13 +1,22 @@
 from sqlmodel import Session, select
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRoute
 
 from core.database import get_session
 
 from api import resources
 
+
+def custom_generate_unique_id(route: APIRoute):
+    return f"{route.name}"
+
+
 app = FastAPI(
-    title="Varaus API", description="API for reserving things", version="0.0.0"
+    title="Varaus API",
+    description="API for reserving things",
+    version="0.0.0",
+    generate_unique_id_function=custom_generate_unique_id,
 )
 
 origins = [

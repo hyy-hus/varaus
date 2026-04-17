@@ -1,0 +1,21 @@
+{
+    "common": {
+        "submit": "Submit",
+        "clear": "Clear",
+        "loading": "Loading...",
+        "submitError": "Error while submitting. Please try again",
+        "home": "Home"
+    },
+    "validation": {
+        "min": "Has to be at least {{length}} long",
+        "max": "Can't exceed {{length}} characters"
+    },
+    "resources": {
+        "title": "Resources",
+        "createTitle": "Create a resource",
+        "createDescription": "Register a new room, equipment or asset into the calendar.",
+        "nameLabel": "Name",
+        "namePlaceholder": "e.g., Meeting Room A",
+        "successToast": "Resource \"{{name}}\" created successfully!"
+    }
+}
