@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader } from '#/components/ui/card';
 import { ScrollArea } from '#/components/ui/scroll-area';
 import { useEffect, useState } from 'react';
 import { Button } from '#/components/ui/button';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardPasteIcon, Clock, Command, CopyIcon, Option } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ClipboardPasteIcon, Clock, CopyIcon } from 'lucide-react';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '#/components/ui/select';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '#/components/ui/hover-card';
 import { ContextMenu, ContextMenuContent, ContextMenuGroup, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuTrigger } from '#/components/ui/context-menu';
+import { DragDropProvider, useDraggable, useDroppable } from '@dnd-kit/react';
 
 export const Route = createFileRoute('/calendar/')({
     staticData: {
@@ -17,6 +18,7 @@ export const Route = createFileRoute('/calendar/')({
 })
 
 interface Reservation {
+    id: number;
     name: string;
     description: string;
     start: Temporal.ZonedDateTime;
@@ -116,47 +118,154 @@ function packReservations(reservations: Reservation[]): PositionedReservation[] 
     return positioned;
 }
 
-interface ColumnProps {
-    reservations: Reservation[];
+function Slot({ rowId, colId }: { rowId: number, colId: number }) {
+    const { ref, isDropTarget } = useDroppable({
+        id: `slot-${colId}-${rowId}`,
+        data: { colId, rowId }
+    });
+
+    return (
+        <ContextMenu>
+            <ContextMenuTrigger asChild>
+                <div
+                    ref={ref}
+                    className={`not-first:nth-[2n+1]:border-t nth-[4n+3]:border-accent hover:bg-primary/20 ${isDropTarget ? 'bg-primary/30' : ''}`}
+                    key={rowId}
+                >
+                </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+                <ContextMenuItem>
+                    <ClipboardPasteIcon />
+                    Paste
+                    <ContextMenuShortcut>
+                        Ctrl + V
+                    </ContextMenuShortcut>
+                </ContextMenuItem>
+            </ContextMenuContent>
+        </ContextMenu>
+    );
 }
 
-function Column({ reservations }: ColumnProps) {
+interface EventCardProps {
+    res: PositionedReservation;
+    startRow: number;
+    endRow: number;
+}
+
+function EventCard({ res, startRow, endRow }: EventCardProps) {
+    const timeString = `${String(res.start.hour).padStart(2, '0')}:${String(res.start.minute).padStart(2, '0')} - ${String(res.end.hour).padStart(2, '0')}:${String(res.end.minute).padStart(2, '0')}`;
+
+    const uniqueDragId = `${res.id}_chunk_${res.start.epochMilliseconds}`;
+
+    // 1. Extract the isDragging state from dnd-kit
+    const { ref, isDragging } = useDraggable({
+        id: uniqueDragId
+    });
+
+    return (
+        <HoverCard key={`event-${res.name}`}>
+            <ContextMenu>
+                <ContextMenuTrigger asChild>
+                    <HoverCardTrigger asChild>
+                        <div
+                            ref={ref}
+                            // 2. Removed `transition-all`, added `transition-colors`, `cursor-grab`, and dynamic opacity/zIndex
+                            className={`absolute h-full transition-colors hover:brightness-110 cursor-grab active:cursor-grabbing bg-primary border border-emerald-50 dark:border-emerald-950 text-white p-1 text-xs shadow-sm overflow-hidden flex flex-col
+                                ${res.isContinuedFromPreviousDay ? 'rounded-t-none border-t-0 border-t-dashed border-t-white/50' : 'rounded-t-md'}
+                                ${res.isContinuedInNextDay ? 'rounded-b-none border-b-0 border-b-dashed border-b-white/50 opacity-90' : 'rounded-b-md'}
+                                ${isDragging ? 'opacity-40 z-50' : 'z-10'}
+                            `}
+                            style={{
+                                gridRow: `${startRow} / ${endRow}`,
+                                gridColumn: '1 / -1',
+                                left: `${res.leftOffsetPercent}%`,
+                                width: `${res.widthPercent}%`,
+                                borderLeftWidth: res.leftOffsetPercent > 0 ? '2px' : '0px',
+                                borderLeftColor: 'transparent',
+                                backgroundClip: 'padding-box'
+                            }}
+                        >
+                            <span className="font-bold truncate">{res.name}</span>
+
+                            {endRow - startRow > 2 && (
+                                <span className="opacity-90 truncate">{res.description}</span>
+                            )}
+                        </div>
+                    </HoverCardTrigger>
+                </ContextMenuTrigger>
+
+                <ContextMenuContent>
+                    <ContextMenuGroup>
+                        <ContextMenuItem>
+                            Open reservation
+                        </ContextMenuItem>
+                        <ContextMenuItem>
+                            <CopyIcon className="mr-2 h-4 w-4" />
+                            Copy
+                            <ContextMenuShortcut className='flex gap-1'>
+                                Ctrl + C
+                            </ContextMenuShortcut>
+                        </ContextMenuItem>
+                        <ContextMenuItem>Copy reservation ID</ContextMenuItem>
+                        <ContextMenuItem>Copy link to reservation</ContextMenuItem>
+                    </ContextMenuGroup>
+                    <ContextMenuSeparator />
+                    <ContextMenuGroup>
+                        <ContextMenuLabel>Management</ContextMenuLabel>
+                        <ContextMenuItem>
+                            Status
+                        </ContextMenuItem>
+                        <ContextMenuItem className='text-destructive' >
+                            Cancel event
+                        </ContextMenuItem>
+                    </ContextMenuGroup>
+                </ContextMenuContent>
+            </ContextMenu>
+
+            {/* 3. Conditionally render the HoverCardContent ONLY if not dragging */}
+            {!isDragging && (
+                <HoverCardContent
+                    className="w-80 z-50"
+                    side="right"
+                    align="end"
+                >
+                    <div className="space-y-2">
+                        <h4 className="text-sm font-semibold">{res.name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                            {res.description || "No description provided."}
+                        </p>
+                        <div className="flex items-center pt-2 text-xs text-muted-foreground">
+                            <Clock className="mr-2 h-3 w-3" />
+                            <span className="font-medium text-foreground">
+                                {timeString}
+                            </span>
+                        </div>
+                    </div>
+                </HoverCardContent>
+            )}
+        </HoverCard>
+    )
+}
+
+interface ColumnProps {
+    reservations: Reservation[];
+    columnId: number;
+}
+
+function Column({ reservations, columnId }: ColumnProps) {
 
     const packedReservations = packReservations(reservations);
 
-    const [currentDropTarget, setCurrentDropTarget] = useState<number | null>(null);
-
     return (
         <div className='grid relative not-last:border-r'
-            onDragLeave={() => setCurrentDropTarget(null)}
             style={{
                 gridTemplateRows: `repeat(${ROWS}, calc(var(--spacing) * 4))`,
             }}
         >
             {Array.from({ length: ROWS }).map((_, rowId) => {
                 return (
-                    <ContextMenu>
-                        <ContextMenuTrigger asChild>
-                            <div
-                                onDragEnter={() => setCurrentDropTarget(rowId)}
-                                className='not-first:nth-[2n+1]:border-t nth-[4n+3]:border-accent hover:bg-emerald-700/20'
-                                style={{
-                                    backgroundColor: currentDropTarget === rowId ? 'red' : ''
-                                }}
-                                key={rowId}
-                            >
-                            </div>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent>
-                            <ContextMenuItem>
-                                <ClipboardPasteIcon />
-                                Paste
-                                <ContextMenuShortcut>
-                                    Ctrl + V
-                                </ContextMenuShortcut>
-                            </ContextMenuItem>
-                        </ContextMenuContent>
-                    </ContextMenu>
+                    <Slot rowId={rowId} colId={columnId} />
                 )
             })}
 
@@ -168,85 +277,9 @@ function Column({ reservations }: ColumnProps) {
                     endRow = 97;
                 }
 
-                const timeString = `${String(res.start.hour).padStart(2, '0')}:${String(res.start.minute).padStart(2, '0')} - ${String(res.end.hour).padStart(2, '0')}:${String(res.end.minute).padStart(2, '0')}`;
 
                 return (
-                    <HoverCard key={`event-${index}`}>
-                        <ContextMenu>
-                            <ContextMenuTrigger asChild>
-                                <HoverCardTrigger asChild>
-                                    <div
-                                        draggable="true"
-                                        className={`absolute h-full cursor-pointer hover:brightness-110 transition-all bg-primary border border-emerald-50 dark:border-emerald-950 text-white p-1 text-xs shadow-sm overflow-hidden flex flex-col
-                        ${res.isContinuedFromPreviousDay ? 'rounded-t-none border-t-0 border-t-dashed border-t-white/50' : 'rounded-t-md'}
-                        ${res.isContinuedInNextDay ? 'rounded-b-none border-b-0 border-b-dashed border-b-white/50 opacity-90' : 'rounded-b-md'}
-                    `}
-                                        style={{
-                                            gridRow: `${startRow} / ${endRow}`,
-                                            gridColumn: '1 / -1',
-                                            left: `${res.leftOffsetPercent}%`,
-                                            width: `${res.widthPercent}%`,
-                                            borderLeftWidth: res.leftOffsetPercent > 0 ? '2px' : '0px',
-                                            borderLeftColor: 'transparent',
-                                            backgroundClip: 'padding-box'
-                                        }}
-                                    >
-                                        <span className="font-bold truncate">{res.name}</span>
-
-                                        {endRow - startRow > 2 && (
-                                            <span className="opacity-90 truncate">{res.description}</span>
-                                        )}
-                                    </div>
-                                </HoverCardTrigger>
-                            </ContextMenuTrigger>
-                            <ContextMenuContent>
-                                <ContextMenuGroup>
-                                    <ContextMenuItem>
-                                        Open reservation
-                                    </ContextMenuItem>
-                                    <ContextMenuItem>
-                                        <CopyIcon />
-                                        Copy
-                                        <ContextMenuShortcut className='flex gap-1'>
-                                            Ctrl + C
-                                        </ContextMenuShortcut>
-                                    </ContextMenuItem>
-                                    <ContextMenuItem>Copy reservation ID</ContextMenuItem>
-                                    <ContextMenuItem>Copy link to reservation</ContextMenuItem>
-                                </ContextMenuGroup>
-                                <ContextMenuSeparator />
-                                <ContextMenuGroup>
-                                    <ContextMenuLabel>Management</ContextMenuLabel>
-                                    <ContextMenuItem>
-                                        Status
-                                    </ContextMenuItem>
-                                    <ContextMenuItem className='text-destructive' >
-                                        Cancel event
-                                    </ContextMenuItem>
-
-                                </ContextMenuGroup>
-                            </ContextMenuContent>
-                        </ContextMenu>
-
-                        <HoverCardContent
-                            className="w-80 z-50"
-                            side="right"
-                            align="end"
-                        >
-                            <div className="space-y-2">
-                                <h4 className="text-sm font-semibold">{res.name}</h4>
-                                <p className="text-sm text-muted-foreground">
-                                    {res.description || "No description provided."}
-                                </p>
-                                <div className="flex items-center pt-2 text-xs text-muted-foreground">
-                                    <Clock className="mr-2 h-3 w-3" />
-                                    <span className="font-medium text-foreground">
-                                        {timeString}
-                                    </span>
-                                </div>
-                            </div>
-                        </HoverCardContent>
-                    </HoverCard>
+                    <EventCard key={res.id} res={res} startRow={startRow} endRow={endRow} />
                 )
             })}
         </div>
@@ -323,56 +356,64 @@ function splitReservationsIntoDays(
 }
 
 function RouteComponent() {
-    const reservations: Reservation[] = [
+    const [reservationsData, setReservationsData] = useState<Reservation[]>([
         {
+            id: 0,
             name: "Reservation A",
             description: "On track #1",
             start: Temporal.Instant.from("2026-04-17T06:00:00Z").toZonedDateTimeISO(localTimeZone),
             end: Temporal.Instant.from("2026-04-17T10:00:00Z").toZonedDateTimeISO(localTimeZone),
         },
         {
+            id: 1,
             name: "Reservation B",
             description: "On track #2",
             start: Temporal.Instant.from("2026-04-17T09:00:00Z").toZonedDateTimeISO(localTimeZone),
             end: Temporal.Instant.from("2026-04-17T14:00:00Z").toZonedDateTimeISO(localTimeZone),
         },
         {
+            id: 2,
             name: "Reservation C",
             description: "On track #1",
             start: Temporal.Instant.from("2026-04-17T11:00:00Z").toZonedDateTimeISO(localTimeZone),
             end: Temporal.Instant.from("2026-04-17T12:00:00Z").toZonedDateTimeISO(localTimeZone),
         },
         {
+            id: 3,
             name: "Reservation D",
             description: "On track #1",
             start: Temporal.Instant.from("2026-04-17T15:00:00Z").toZonedDateTimeISO(localTimeZone),
             end: Temporal.Instant.from("2026-04-17T16:00:00Z").toZonedDateTimeISO(localTimeZone),
         },
         {
+            id: 4,
             name: "Reservation E",
             description: "On track #2 ",
             start: Temporal.Instant.from("2026-04-17T15:15:00Z").toZonedDateTimeISO(localTimeZone),
             end: Temporal.Instant.from("2026-04-17T16:00:00Z").toZonedDateTimeISO(localTimeZone),
         },
         {
+            id: 5,
             name: "Reservation F",
             description: "On track #3",
             start: Temporal.Instant.from("2026-04-17T15:30:00Z").toZonedDateTimeISO(localTimeZone),
             end: Temporal.Instant.from("2026-04-17T16:00:00Z").toZonedDateTimeISO(localTimeZone),
         },
         {
+            id: 6,
             name: "Reservation G",
             description: "Alone, but right after D-E cluster",
             start: Temporal.Instant.from("2026-04-17T16:00:00Z").toZonedDateTimeISO(localTimeZone),
             end: Temporal.Instant.from("2026-04-17T17:00:00Z").toZonedDateTimeISO(localTimeZone),
         },
         {
+            id: 7,
             name: "Reservation H",
             description: "Crosses day lines!",
             start: Temporal.Instant.from("2026-04-17T20:00:00Z").toZonedDateTimeISO(localTimeZone),
             end: Temporal.Instant.from("2026-04-18T04:00:00Z").toZonedDateTimeISO(localTimeZone),
         },
-    ];
+    ]);
 
     function getCurrentDate() {
         return Temporal.Now.plainDateISO(localTimeZone);
@@ -381,11 +422,17 @@ function RouteComponent() {
     const [startDate, setStartDate] = useState(getCurrentDate());
     const [visibleDays, setVisibleDays] = useState(3);
 
+    const [isDropped, setIsDropped] = useState(false);
+
+    useEffect(() => {
+        console.log(isDropped);
+    }, [isDropped])
+
     const targetDays = Array.from({ length: visibleDays }).map((_, i) => {
         return startDate.add({ days: i });
     });
 
-    const columnsData = splitReservationsIntoDays(reservations, targetDays, localTimeZone);
+    const columnsData = splitReservationsIntoDays(reservationsData, targetDays, localTimeZone);
 
     function focusCurrentDay() {
         setStartDate(getCurrentDate());
@@ -494,38 +541,78 @@ function RouteComponent() {
             </CardHeader>
             <CardContent>
                 <ScrollArea className='border rounded-md h-150' >
-                    <div
-                        className='sticky top-0 z-30 grid bg-muted border-b shadow-sm'
-                        style={{ gridTemplateColumns: `50px repeat(${visibleDays}, 1fr)` }}
-                    >
-                        <div className="border-r text-center text-xs flex items-center py-2 justify-center text-muted-foreground bg-muted">
-                            time
-                        </div>
+                    <DragDropProvider
+                        onDragEnd={(event) => {
+                            if (event.canceled || !event.operation.target) return;
 
-                        {targetDays.map(day => (
-                            <div key={`header-${day.toString()}`} className="py-2 text-center text-sm not-last:border-r bg-muted">
-                                {formatDayHeader(day)}
-                            </div>
-                        ))}
-                    </div>
+                            const { source, target } = event.operation;
 
-                    <div className='grid relative'
-                        style={{
-                            gridTemplateColumns: `50px repeat(${visibleDays},1fr)`
+                            const dropData = target.data as { colId: number; rowId: number } | undefined;
+
+                            if (dropData) {
+                                setReservationsData(prev => {
+                                    const originalId = Number(String(source?.id ?? 0).split('_chunk_')[0]);
+
+                                    const activeRes = prev.find(r => r.id === originalId);
+                                    if (!activeRes) return prev;
+
+                                    const durationMillis = activeRes.end.epochMilliseconds - activeRes.start.epochMilliseconds;
+
+                                    const targetDate = targetDays[dropData.colId];
+                                    const newStart = targetDate.toZonedDateTime({
+                                        timeZone: localTimeZone,
+                                        plainTime: Temporal.PlainTime.from({
+                                            hour: Math.floor(dropData.rowId / 4),
+                                            minute: (dropData.rowId % 4) * 15
+                                        })
+                                    });
+
+                                    const newEnd = Temporal.Instant.fromEpochMilliseconds(
+                                        newStart.epochMilliseconds + durationMillis
+                                    ).toZonedDateTimeISO(localTimeZone);
+
+                                    return prev.map(r =>
+                                        r.id === originalId
+                                            ? { ...r, start: newStart, end: newEnd }
+                                            : r
+                                    );
+                                });
+                            }
                         }}
                     >
-                        <HourColumn />
+                        <div
+                            className='sticky top-0 z-30 grid bg-muted border-b shadow-sm'
+                            style={{ gridTemplateColumns: `50px repeat(${visibleDays}, 1fr)` }}
+                        >
+                            <div className="border-r text-center text-xs flex items-center py-2 justify-center text-muted-foreground bg-muted">
+                                time
+                            </div>
 
-                        {columnsData.map((dayData) => (
-                            <Column
-                                key={dayData.date.toString()}
-                                reservations={dayData.reservations}
-                            />
-                        ))}
+                            {targetDays.map(day => (
+                                <div key={`header-${day.toString()}`} className="py-2 text-center text-sm not-last:border-r bg-muted">
+                                    {formatDayHeader(day)}
+                                </div>
+                            ))}
+                        </div>
 
-                        <CurrentTimeLine />
-                    </div>
+                        <div className='grid relative'
+                            style={{
+                                gridTemplateColumns: `50px repeat(${visibleDays},1fr)`
+                            }}
+                        >
+                            <HourColumn />
 
+                            {columnsData.map((dayData, idx) => (
+                                <Column
+                                    columnId={idx}
+                                    key={dayData.date.toString()}
+                                    reservations={dayData.reservations}
+                                />
+                            ))}
+
+                            <CurrentTimeLine />
+                        </div>
+                    </DragDropProvider>
                 </ScrollArea>
             </CardContent>
         </Card >
