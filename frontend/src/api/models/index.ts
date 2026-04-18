@@ -7,7 +7,15 @@
  */
 
 export * from './hTTPValidationError';
+export * from './occurrenceCreate';
+export * from './occurrenceRead';
+export * from './readOccurrencesParams';
+export * from './readReservationsParams';
 export * from './readResourcesParams';
+export * from './reservationCreate';
+export * from './reservationRead';
+export * from './reservationStatus';
+export * from './reservationUpdate';
 export * from './resourceCreate';
 export * from './resourceRead';
 export * from './resourceUpdate';
