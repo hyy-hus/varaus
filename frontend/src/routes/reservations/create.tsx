@@ -1,4 +1,4 @@
-import { CreateResourceForm } from '#/features/resources/components/CreateResourceForm'
+import { CreateReservationForm } from '#/features/reservations/CreateReservationForm';
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/reservations/create')({
@@ -11,6 +11,6 @@ export const Route = createFileRoute('/reservations/create')({
 function RouteComponent() {
     return (
         <div>
-            Create a new
+            <CreateReservationForm />
         </div>)
 }
