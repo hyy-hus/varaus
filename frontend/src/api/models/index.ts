@@ -13,6 +13,7 @@ export * from './hTTPValidationError';
 export * from './interval';
 export * from './occurrenceCreate';
 export * from './occurrenceRead';
+export * from './occurrenceWithReservationRead';
 export * from './readOccurrencesParams';
 export * from './readReservationsParams';
 export * from './readResourcesParams';

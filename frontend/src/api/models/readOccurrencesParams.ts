@@ -7,6 +7,9 @@
  */
 
 export type ReadOccurrencesParams = {
+start?: string | null;
+end?: string | null;
+resource_ids?: string[] | null;
 offset?: number;
 limit?: number;
 };

@@ -30,6 +30,7 @@ import type {
   HTTPValidationError,
   OccurrenceCreate,
   OccurrenceRead,
+  OccurrenceWithReservationRead,
   ReadOccurrencesParams,
   ReadReservationsParams,
   ReservationCreate,
@@ -684,7 +685,7 @@ export const useCreateOccurrence = <TError = HTTPValidationError,
  * @summary Read Occurrences
  */
 export type readOccurrencesResponse200 = {
-  data: OccurrenceRead[]
+  data: OccurrenceWithReservationRead[]
   status: 200
 }
 

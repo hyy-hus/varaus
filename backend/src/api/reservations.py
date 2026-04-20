@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, status, Depends, HTTPException
+from fastapi import APIRouter, status, Depends, HTTPException, Query
 from sqlmodel import Session, select, func, or_, col
 from psycopg.types.range import Range
 
@@ -146,19 +146,57 @@ def create_occurrence(
     return map_occurrence_to_read(db_occ)
 
 
-@router.get("/occurrences/", response_model=list[OccurrenceRead])
-def read_occurrences(
-    *, session: Session = Depends(get_session), offset: int = 0, limit: int = 100
-):
-    statement = (
-        select(Occurrence)
-        .where(Occurrence.deleted_at == None)
-        .offset(offset)
-        .limit(limit)
-    )
-    occurrences = session.exec(statement).all()
+class OccurrenceWithReservationRead(OccurrenceRead):
+    reservation_name: str
+    reservation_description: str | None = None
 
-    return [map_occurrence_to_read(occ) for occ in occurrences]
+
+@router.get("/occurrences/", response_model=list[OccurrenceWithReservationRead])
+def read_occurrences(
+    *,
+    session: Session = Depends(get_session),
+    start: datetime | None = None,
+    end: datetime | None = None,
+    resource_ids: list[uuid.UUID] | None = Query(default=None),
+    offset: int = 0,
+    limit: int = 100,
+):
+    query = (
+        select(Occurrence, Reservation)
+        .join(Reservation)
+        .where(
+            col(Occurrence.deleted_at).is_(None), col(Reservation.deleted_at).is_(None)
+        )
+    )
+
+    if start and end:
+        query = query.where(Occurrence.time_range.op("&&")(func.tstzrange(start, end)))
+    elif start:
+        query = query.where(Occurrence.time_range.op("&&")(func.tstzrange(start, None)))
+    elif end:
+        query = query.where(Occurrence.time_range.op("&&")(func.tstzrange(None, end)))
+
+    if resource_ids:
+        query = query.where(col(Occurrence.resource_id).in_(resource_ids))
+
+    query = query.offset(offset).limit(limit)
+    results = session.exec(query).all()
+
+    response = []
+    for occ, res in results:
+        response.append(
+            OccurrenceWithReservationRead(
+                id=occ.id,
+                reservation_id=occ.reservation_id,
+                resource_id=occ.resource_id,
+                start_time=occ.time_range.lower,
+                end_time=occ.time_range.upper,
+                reservation_name=res.name,
+                reservation_description=res.description,
+            )
+        )
+
+    return response
 
 
 @router.delete("/occurrences/{occurrence_id}", status_code=status.HTTP_204_NO_CONTENT)
