@@ -12,18 +12,13 @@ import { Temporal } from "@js-temporal/polyfill"
 import { calculateOccurrences } from "#/lib/rrule-utils"
 
 export function CreateReservationForm() {
+    const getDefaultTimes = () => {
+        const now = Temporal.Now.plainDateTimeISO();
+        const start = now.with({ minute: 0, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0 });
+        return { start, end: start.add({ hours: 1 }) };
+    };
 
-    const now = Temporal.Now.plainDateTimeISO();
-
-    const startOfHour = now.with({
-        minute: 0,
-        second: 0,
-        millisecond: 0,
-        microsecond: 0,
-        nanosecond: 0
-    });
-
-    const endOfHour = startOfHour.add({ hours: 1 });
+    const initialTimes = getDefaultTimes();
 
     const form = useForm<ReservationFormValues>({
         resolver: zodResolver(reservationSchema),
@@ -32,13 +27,27 @@ export function CreateReservationForm() {
             name: "",
             description: "",
             status: "pending",
-            startDateTime: startOfHour,
-            endDateTime: endOfHour,
+            startDateTime: initialTimes.start,
+            endDateTime: initialTimes.end,
             resourceIds: [],
+            rrule: undefined
         },
     })
 
     const createMutation = useCreateReservationWithOccurrences()
+
+    const handleReset = () => {
+        const freshTimes = getDefaultTimes(); // Gets the CURRENT time, not the time the page loaded!
+        form.reset({
+            name: "",
+            description: "",
+            status: "pending",
+            startDateTime: freshTimes.start,
+            endDateTime: freshTimes.end,
+            resourceIds: [],
+            rrule: undefined
+        });
+    };
 
     const onSubmit = (data: ReservationFormValues) => {
         const start = new Date(
@@ -74,7 +83,7 @@ export function CreateReservationForm() {
             {
                 onSuccess: () => {
                     toast.success(t('reservations.successToast', { name: data.name }));
-                    form.reset();
+                    handleReset();
                 },
                 onError: (error) => {
                     console.error("Error while submitting form:", error);
@@ -99,7 +108,7 @@ export function CreateReservationForm() {
             </CardContent>
             <CardFooter>
                 <Field orientation={"horizontal"} >
-                    <Button type="button" variant="outline" onClick={() => form.reset()} disabled={createMutation.isPending}>
+                    <Button type="button" variant="outline" onClick={() => handleReset()} disabled={createMutation.isPending}>
                         Clear
                     </Button>
                     <Button type="submit" form="create-reservation-form"

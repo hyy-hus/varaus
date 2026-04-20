@@ -25,6 +25,7 @@ interface ReservationFormFieldsProps {
 }
 
 interface RRuleOptionsProps {
+    value?: string;
     baseStartTime?: Temporal.PlainDateTime;
     onChange?: (rruleString?: string) => void;
 }
@@ -39,27 +40,21 @@ const WEEKDAYS = [
     { label: "Su", value: RRule.SU },
 ];
 
-export function RRuleOptions({ baseStartTime, onChange }: RRuleOptionsProps) {
+export function RRuleOptions({ value, baseStartTime, onChange }: RRuleOptionsProps) {
     const [isRecurring, setIsRecurring] = useState<boolean>(false);
 
-    // Core RRULE State
     const [interval, setInterval] = useState<number>(1);
     const [freq, setFreq] = useState<Frequency>(RRule.WEEKLY);
 
-    // "Repeats On" State
-    // Default to the current weekday (Temporal dayOfWeek: 1=Mon, 7=Sun)
     const initialWeekday = baseStartTime ? WEEKDAYS[baseStartTime.dayOfWeek - 1].value : RRule.MO;
     const [selectedWeekdays, setSelectedWeekdays] = useState<ByWeekday[]>([initialWeekday]);
 
-    // Default to the current day of the month (1-31)
     const [monthDay, setMonthDay] = useState<number>(baseStartTime?.day || 1);
 
-    // End Condition State
     const [endMode, setEndMode] = useState<"count" | "until">("count");
     const [count, setCount] = useState<number>(10);
     const [untilDate, setUntilDate] = useState<string>("");
 
-    // Handle Weekday Toggling
     const toggleWeekday = (day: ByWeekday) => {
         setSelectedWeekdays((prev) => {
             if (prev.includes(day)) {
@@ -71,7 +66,12 @@ export function RRuleOptions({ baseStartTime, onChange }: RRuleOptionsProps) {
         });
     };
 
-    // 1. Generate the RRULE whenever state changes
+    useEffect(() => {
+        if (!value) {
+            setIsRecurring(false);
+        }
+    }, [value]);
+
     useEffect(() => {
         if (!isRecurring || !baseStartTime) {
             onChange?.(undefined);
@@ -94,16 +94,13 @@ export function RRuleOptions({ baseStartTime, onChange }: RRuleOptionsProps) {
             }
         }
 
-        // Dynamically inject the "Repeats On" logic based on the frequency
         const rule = new RRule({
             freq,
             interval,
             dtstart,
             ...(endMode === "count" ? { count } : {}),
             ...(endMode === "until" && until ? { until } : {}),
-            // Inject Weekly rules
             ...(freq === RRule.WEEKLY ? { byweekday: selectedWeekdays } : {}),
-            // Inject Monthly rules
             ...(freq === RRule.MONTHLY ? { bymonthday: [monthDay] } : {}),
         });
 
@@ -368,7 +365,8 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
         };
     }, [debouncedStart, debouncedEnd, debouncedRrule, debouncedResources]);
 
-    const { data: conflictData, isFetching: isCheckingConflicts } = useCheckConflictsQuery(conflictPayload);
+    const { data: cachedConflictData, isFetching: isCheckingConflicts } = useCheckConflictsQuery(conflictPayload);
+    const conflictData = conflictPayload ? cachedConflictData : null;
 
     useEffect(() => {
         console.log("conflicts:", conflictData);
@@ -593,6 +591,7 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                     control={control}
                     render={({ field }) => (
                         <RRuleOptions
+                            value={field.value}
                             baseStartTime={startDateTime}
                             onChange={field.onChange}
                         />
