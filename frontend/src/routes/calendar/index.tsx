@@ -1,6 +1,9 @@
 import { useReadOccurrences } from '#/api/endpoints/reservations/reservations';
-import type { OccurrenceRead } from '#/api/models';
+import { useReadResources } from '#/api/endpoints/resources/resources';
+import type { OccurrenceWithReservationRead } from '#/api/models';
 import { Calendar, type CalendarEvent } from '#/components/calendar/Calendar'
+import { ComboboxMultiple } from '#/components/ComboboxMultiple';
+import { Card, CardContent, CardHeader } from '#/components/ui/card';
 import { Temporal } from '@js-temporal/polyfill';
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMemo } from 'react';
@@ -11,6 +14,9 @@ const localTimeZone = Temporal.Now.timeZoneId();
 const calendarSearchSchema = z.object({
     date: z.string().optional(),
     days: z.number().catch(3).optional(), // Defaults to 3 if someone types ?days=invalid
+    resources: z.union([z.string(), z.array(z.string())])
+        .transform(val => Array.isArray(val) ? val : [val])
+        .optional(),
 });
 
 export const Route = createFileRoute('/calendar/')({
@@ -22,13 +28,33 @@ function RouteComponent() {
     const search = Route.useSearch();
     const navigate = useNavigate({ from: Route.id });
 
+    const { data: resourcesResponse } = useReadResources();
+
+    const comboboxItems = useMemo(() => {
+        if (resourcesResponse?.status === 200) {
+            return resourcesResponse.data.map((r) => ({
+                key: r.id,
+                value: r.name
+            }));
+        }
+        return [];
+    }, [resourcesResponse]);
+
     const startDate = search.date
         ? Temporal.PlainDate.from(search.date)
         : Temporal.Now.plainDateISO(localTimeZone);
 
     const visibleDays = search.days || 3;
+    const selectedResources = search.resources || [];
 
-    const { data: occurrencesResponse, isLoading } = useReadOccurrences();
+    const windowStart = startDate.toZonedDateTime({ timeZone: localTimeZone, plainTime: '00:00:00' });
+    const windowEnd = windowStart.add({ days: visibleDays });
+
+    const { data: occurrencesResponse, isLoading } = useReadOccurrences({
+        start: windowStart.toInstant().toString(),
+        end: windowEnd.toInstant().toString(),
+        resource_ids: selectedResources.length > 0 ? selectedResources : undefined
+    });
 
     const events = useMemo<CalendarEvent[]>(() => {
         if (!occurrencesResponse?.data) return [];
@@ -38,13 +64,10 @@ function RouteComponent() {
             return [];
         }
 
-        return occurrencesResponse.data.map((occ: OccurrenceRead) => {
+        return occurrencesResponse.data.map((occ: OccurrenceWithReservationRead) => {
             return {
                 id: occ.id,
-                // Note: If your readOccurrences route doesn't return the reservation name yet,
-                // it will fall back to showing the reservation UUID. 
-                // You can update your backend to JOIN the reservation table later!
-                name: (occ as any).reservation_name || `Res: ${occ.reservation_id.split('-')[0]}`,
+                name: occ.reservation_name,
                 description: (occ as any).reservation_description || "",
 
                 start: Temporal.Instant.from(occ.start_time).toZonedDateTimeISO(localTimeZone),
@@ -53,14 +76,12 @@ function RouteComponent() {
         });
     }, [occurrencesResponse]);
 
-    // 7. Navigation Handlers to update the URL (which instantly re-renders the page!)
     const handleStartDateChange = (newDate: Temporal.PlainDate) => {
         navigate({
             search: (prev) => ({
                 ...prev,
                 date: newDate.toString(),
             }),
-            // Optional: Keeps the scroll position stable when changing days
             resetScroll: false
         });
     };
@@ -70,6 +91,16 @@ function RouteComponent() {
             search: (prev) => ({
                 ...prev,
                 days: newDays,
+            }),
+            resetScroll: false
+        });
+    };
+
+    const handleResourcesChange = (newResources: string[]) => {
+        navigate({
+            search: (prev) => ({
+                ...prev,
+                resources: newResources.length > 0 ? newResources : undefined,
             }),
             resetScroll: false
         });
@@ -89,7 +120,20 @@ function RouteComponent() {
     };
 
     return (
-        <div className="p-6 max-w-[1600px] mx-auto">
+        <div className="flex flex-col gap-4 p-6 max-w-[1600px] mx-auto">
+            <Card>
+                <CardHeader>
+                    <label className="text-sm font-medium text-muted-foreground">Filter by Resources</label>
+                </CardHeader>
+                <CardContent>
+                    <ComboboxMultiple
+                        items={comboboxItems}
+                        value={selectedResources}
+                        onValueChange={handleResourcesChange}
+                    />
+                </CardContent>
+            </Card>
+
             {isLoading ? (
                 <div className="flex items-center justify-center h-64 text-muted-foreground animate-pulse">
                     Loading calendar data...
