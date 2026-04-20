@@ -55,7 +55,7 @@ def read_reservations(
 ):
     statement = (
         select(Reservation)
-        .where(Reservation.deleted_at is None)
+        .where(Reservation.deleted_at == None)
         .offset(offset)
         .limit(limit)
     )
