@@ -191,6 +191,8 @@ class ConflictDetail(BaseModel):
     resource_id: uuid.UUID
     start: datetime
     end: datetime
+    reservation_id: uuid.UUID
+    reservation_name: str
 
 
 class ConflictCheckResponse(BaseModel):
@@ -218,21 +220,30 @@ def check_conflicts(
     ]
 
     # 2. Query the database
-    query = select(Occurrence).where(
-        col(Occurrence.resource_id).in_(request.resourceIds),
-        col(Occurrence.deleted_at).is_(None),
-        or_(*overlap_conditions),
+    query = (
+        select(Occurrence, Reservation)
+        .join(Reservation)
+        .where(
+            col(Occurrence.resource_id).in_(request.resourceIds),
+            col(Occurrence.deleted_at).is_(None),
+            col(Reservation.deleted_at).is_(
+                None
+            ),  # CRITICAL: Also ignore soft-deleted reservations!
+            or_(*overlap_conditions),
+        )
     )
 
-    conflicting_occurrences = session.exec(query).all()
-
+    results = session.exec(query).all()
     conflicts = []
-    for occ in conflicting_occurrences:
+
+    for occ, res in results:
         conflicts.append(
             ConflictDetail(
                 resource_id=occ.resource_id,
                 start=occ.time_range.lower,
                 end=occ.time_range.upper,
+                reservation_id=res.id,
+                reservation_name=res.name,
             )
         )
 

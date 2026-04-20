@@ -10,4 +10,6 @@ export interface ConflictDetail {
   resource_id: string;
   start: string;
   end: string;
+  reservation_id: string;
+  reservation_name: string;
 }

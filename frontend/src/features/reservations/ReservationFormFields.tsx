@@ -498,6 +498,7 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
 
                 </FieldGroup>
 
+                {/* THE LIVE CONFLICT WARNING UI */}
                 <div className="min-h-[40px] transition-all">
                     {isCheckingConflicts ? (
                         <div className="text-sm text-muted-foreground animate-pulse flex items-center gap-2">
@@ -505,9 +506,37 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                             Checking availability...
                         </div>
                     ) : conflictData?.has_conflicts ? (
-                        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                            <strong className="block mb-1">Warning: Resource Conflict Detected</strong>
-                            One or more selected resources are already booked during these times. Proceeding will double-book these resources.
+                        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+                            <strong className="block mb-2 text-base">⚠️ Resource Conflict Detected</strong>
+                            <p className="mb-3">The following resources are already booked during your selected times:</p>
+
+                            {/* A scrollable list in case there are many conflicts */}
+                            <ul className="max-h-40 space-y-2 overflow-y-auto rounded bg-destructive/5 p-2 border border-destructive/20">
+                                {conflictData.conflicts.map((conflict, idx) => {
+                                    // Look up the human-readable resource name!
+                                    const resourceName = resources.find(r => r.id === conflict.resource_id)?.name || "Unknown Resource";
+
+                                    // Format the dates cleanly
+                                    const startDate = new Date(conflict.start);
+                                    const endDate = new Date(conflict.end);
+
+                                    return (
+                                        <li key={idx} className="flex flex-col gap-0.5 border-b border-destructive/10 pb-2 last:border-0 last:pb-0">
+                                            <div className="font-medium">
+                                                {resourceName}
+                                            </div>
+                                            <div className="text-xs opacity-90">
+                                                Conflicting event: <a href={`/reservations/${conflict.reservation_id}`} target="_blank" rel="noopener noreferrer" className="font-bold underline hover:text-destructive-foreground">
+                                                    {conflict.reservation_name}
+                                                </a>
+                                            </div>
+                                            <div className="text-xs opacity-80">
+                                                {startDate.toLocaleDateString()} ({startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
                         </div>
                     ) : conflictPayload && conflictData && !conflictData.has_conflicts ? (
                         <div className="rounded-md border border-emerald-500/50 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400 font-medium">
@@ -575,23 +604,68 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                         <h4 className="mb-3 text-sm font-medium">
                             Previewing occurrences ({occurrencesPreview.length} shown)
                         </h4>
-                        <ul className="max-h-48 space-y-1 overflow-y-auto text-sm text-muted-foreground">
-                            {occurrencesPreview.map((date, idx) => (
-                                <li key={idx} className="flex items-center gap-2">
-                                    <span className="w-6 text-xs opacity-50">{idx + 1}.</span>
-                                    {date.toLocaleDateString(undefined, {
-                                        weekday: 'short',
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric'
-                                    })}
-                                    {' at '}
-                                    {date.toLocaleTimeString(undefined, {
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                    })}
-                                </li>
-                            ))}
+                        <ul className="max-h-64 space-y-2 overflow-y-auto text-sm">
+                            {occurrencesPreview.map((date, idx) => {
+                                // 1. Find all conflicts that land exactly on this occurrence's start time
+                                const dateConflicts = conflictData?.conflicts?.filter(
+                                    (c) => new Date(c.start).getTime() === date.getTime()
+                                ) || [];
+
+                                const hasConflict = dateConflicts.length > 0;
+
+                                return (
+                                    <li
+                                        key={idx}
+                                        className={`flex flex-col gap-1.5 p-2 rounded-md border transition-colors ${hasConflict
+                                            ? "border-destructive/40 bg-destructive/10 text-destructive"
+                                            : "border-transparent text-muted-foreground hover:bg-muted/30"
+                                            }`}
+                                    >
+                                        {/* Row 1: The Date and Time */}
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-6 text-xs opacity-50">{idx + 1}.</span>
+                                            <span className={hasConflict ? "font-semibold" : ""}>
+                                                {date.toLocaleDateString(undefined, {
+                                                    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+                                                })}
+                                                {' at '}
+                                                {date.toLocaleTimeString(undefined, {
+                                                    hour: '2-digit', minute: '2-digit'
+                                                })}
+                                            </span>
+                                            {hasConflict && (
+                                                <span className="ml-auto text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-destructive/20 rounded text-destructive">
+                                                    Conflict
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Row 2: The Specific Resource Conflicts (Only shows if conflicts exist) */}
+                                        {hasConflict && (
+                                            <div className="ml-8 flex flex-col gap-1 text-xs mt-1">
+                                                {dateConflicts.map((conflict, cIdx) => {
+                                                    const resourceName = resources.find(r => r.id === conflict.resource_id)?.name || "Unknown Resource";
+                                                    return (
+                                                        <div key={cIdx} className="flex items-start gap-1.5 opacity-90">
+                                                            <span>
+                                                                <strong className="font-semibold">{resourceName}</strong> is already booked for{" "}
+                                                                <a
+                                                                    href={`/reservations/${conflict.reservation_id}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="font-bold underline underline-offset-2 hover:text-destructive-foreground transition-colors"
+                                                                >
+                                                                    {conflict.reservation_name}
+                                                                </a>
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </li>
+                                );
+                            })}
                         </ul>
                     </div>
                 )}
