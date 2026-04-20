@@ -14,6 +14,10 @@ import { Button } from "#/components/ui/button";
 import { useReadResources } from "#/api/endpoints/resources/resources";
 import { Combobox, ComboboxChip, ComboboxChips, ComboboxChipsInput, ComboboxContent, ComboboxEmpty, ComboboxItem, ComboboxList, ComboboxValue, useComboboxAnchor } from "#/components/ui/combobox";
 import { XIcon } from "lucide-react";
+import { calculateOccurrences } from "#/lib/rrule-utils";
+import { useDebounce } from "@uidotdev/usehooks";
+import type { ConflictCheckRequest } from "#/api/models";
+import { useCheckConflictsQuery } from "#/lib/hooks/checkConflicts";
 
 
 interface ReservationFormFieldsProps {
@@ -323,33 +327,53 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
     const { t } = useTranslation();
 
     const startDateTime = useWatch({ control, name: "startDateTime" });
+    const endDateTime = useWatch({ control, name: "endDateTime" });
     const rruleString = useWatch({ control, name: "rrule" });
+    const resourceIds = useWatch({ control, name: "resourceIds" }) || [];
+
+    const debouncedStart = useDebounce(startDateTime, 500);
+    const debouncedEnd = useDebounce(endDateTime, 500);
+    const debouncedRrule = useDebounce(rruleString, 500);
+    const debouncedResources = useDebounce(resourceIds, 500);
 
     const occurrencesPreview = useMemo(() => {
-        if (!startDateTime || !rruleString) return [];
-
-        try {
-            const dtstart = new Date(
-                startDateTime.year,
-                startDateTime.month - 1,
-                startDateTime.day,
-                startDateTime.hour,
-                startDateTime.minute
-            );
-
-            const options = RRule.parseString(rruleString);
-
-            options.dtstart = dtstart;
-
-            const rule = new RRule(options);
-
-            return rule.all((_, i) => i < 50);
-
-        } catch (e) {
-            console.error("Failed to calculate RRULE occurrences:", e);
-            return [];
-        }
+        return calculateOccurrences(startDateTime, rruleString);
     }, [startDateTime, rruleString]);
+
+    const conflictPayload = useMemo<ConflictCheckRequest | null>(() => {
+        if (!debouncedStart || !debouncedEnd || debouncedResources.length === 0) return null;
+
+        const start = new Date(
+            debouncedStart.year, debouncedStart.month - 1, debouncedStart.day,
+            debouncedStart.hour, debouncedStart.minute
+        );
+        const end = new Date(
+            debouncedEnd.year, debouncedEnd.month - 1, debouncedEnd.day,
+            debouncedEnd.hour, debouncedEnd.minute
+        );
+        const durationMs = end.getTime() - start.getTime();
+
+        const starts = debouncedRrule
+            ? calculateOccurrences(debouncedStart, debouncedRrule)
+            : [start];
+
+        const intervals = starts.map(startDate => ({
+            start: startDate.toISOString(),
+            end: new Date(startDate.getTime() + durationMs).toISOString()
+        }));
+
+        return {
+            resourceIds: debouncedResources,
+            intervals: intervals
+        };
+    }, [debouncedStart, debouncedEnd, debouncedRrule, debouncedResources]);
+
+    const { data: conflictData, isFetching: isCheckingConflicts } = useCheckConflictsQuery(conflictPayload);
+
+    useEffect(() => {
+        console.log("conflicts:", conflictData);
+        console.log("payload:", conflictPayload)
+    }, [conflictData, conflictPayload]);
 
     const resourcesResponse = useReadResources();
     const resourcesData = resourcesResponse?.data?.data;
@@ -473,6 +497,24 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                     />
 
                 </FieldGroup>
+
+                <div className="min-h-[40px] transition-all">
+                    {isCheckingConflicts ? (
+                        <div className="text-sm text-muted-foreground animate-pulse flex items-center gap-2">
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            Checking availability...
+                        </div>
+                    ) : conflictData?.has_conflicts ? (
+                        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                            <strong className="block mb-1">Warning: Resource Conflict Detected</strong>
+                            One or more selected resources are already booked during these times. Proceeding will double-book these resources.
+                        </div>
+                    ) : conflictPayload && conflictData && !conflictData.has_conflicts ? (
+                        <div className="rounded-md border border-emerald-500/50 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400 font-medium">
+                            ✅ All selected resources are available!
+                        </div>
+                    ) : null}
+                </div>
 
             </FieldSet>
 

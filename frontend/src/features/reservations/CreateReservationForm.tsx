@@ -2,13 +2,14 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { ReservationFormFields } from "./ReservationFormFields"
 import { reservationSchema, type ReservationFormValues } from "./schema"
-import { useCreateReservation } from "#/api/endpoints/reservations/reservations"
+import { useCreateReservationWithOccurrences } from "#/api/endpoints/reservations/reservations"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "#/components/ui/card"
-import { Field, FieldSet } from "#/components/ui/field"
+import { Field } from "#/components/ui/field"
 import { Button } from "#/components/ui/button"
 import { t } from "i18next"
 import { toast } from "sonner"
 import { Temporal } from "@js-temporal/polyfill"
+import { calculateOccurrences } from "#/lib/rrule-utils"
 
 export function CreateReservationForm() {
 
@@ -37,11 +38,39 @@ export function CreateReservationForm() {
         },
     })
 
-    const createMutation = useCreateReservation()
+    const createMutation = useCreateReservationWithOccurrences()
 
     const onSubmit = (data: ReservationFormValues) => {
+        const start = new Date(
+            data.startDateTime.year, data.startDateTime.month - 1, data.startDateTime.day,
+            data.startDateTime.hour, data.startDateTime.minute
+        );
+        const end = new Date(
+            data.endDateTime.year, data.endDateTime.month - 1, data.endDateTime.day,
+            data.endDateTime.hour, data.endDateTime.minute
+        );
+        const durationMs = end.getTime() - start.getTime();
+
+        const starts = data.rrule
+            ? calculateOccurrences(data.startDateTime, data.rrule)
+            : [start];
+
+        const intervals = starts.map(startDate => ({
+            start: startDate.toISOString(),
+            end: new Date(startDate.getTime() + durationMs).toISOString()
+        }));
+
+        const payload = {
+            name: data.name,
+            description: data.description,
+            status: data.status,
+            rrule: data.rrule,
+            resource_ids: data.resourceIds,
+            intervals: intervals
+        };
+
         createMutation.mutate(
-            { data: data },
+            { data: payload },
             {
                 onSuccess: () => {
                     toast.success(t('reservations.successToast', { name: data.name }));
