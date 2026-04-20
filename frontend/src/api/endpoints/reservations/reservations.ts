@@ -25,6 +25,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ConflictCheckRequest,
+  ConflictCheckResponse,
   HTTPValidationError,
   OccurrenceCreate,
   OccurrenceRead,
@@ -32,7 +34,9 @@ import type {
   ReadReservationsParams,
   ReservationCreate,
   ReservationRead,
-  ReservationUpdate
+  ReservationUpdate,
+  ReservationWithOccurrencesCreate,
+  ReservationWithOccurrencesRead
 } from '../../models';
 
 
@@ -901,4 +905,194 @@ export const useDeleteOccurrence = <TError = HTTPValidationError,
         TContext
       > => {
       return useMutation(getDeleteOccurrenceMutationOptions(options), queryClient);
+    }
+    /**
+ * @summary Check Conflicts
+ */
+export type checkConflictsResponse200 = {
+  data: ConflictCheckResponse
+  status: 200
+}
+
+export type checkConflictsResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type checkConflictsResponseSuccess = (checkConflictsResponse200) & {
+  headers: Headers;
+};
+export type checkConflictsResponseError = (checkConflictsResponse422) & {
+  headers: Headers;
+};
+
+export type checkConflictsResponse = (checkConflictsResponseSuccess | checkConflictsResponseError)
+
+export const getCheckConflictsUrl = () => {
+
+
+
+
+  return `/api/reservations/conflicts`
+}
+
+export const checkConflicts = async (conflictCheckRequest: ConflictCheckRequest, options?: RequestInit): Promise<checkConflictsResponse> => {
+
+  const res = await fetch(getCheckConflictsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      conflictCheckRequest,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: checkConflictsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as checkConflictsResponse
+}
+
+
+
+
+export const getCheckConflictsMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkConflicts>>, TError,{data: ConflictCheckRequest}, TContext>, fetch?: RequestInit}
+): UseMutationOptions<Awaited<ReturnType<typeof checkConflicts>>, TError,{data: ConflictCheckRequest}, TContext> => {
+
+const mutationKey = ['checkConflicts'];
+const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, fetch: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkConflicts>>, {data: ConflictCheckRequest}> = (props) => {
+          const {data} = props ?? {};
+
+          return  checkConflicts(data,fetchOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckConflictsMutationResult = NonNullable<Awaited<ReturnType<typeof checkConflicts>>>
+    export type CheckConflictsMutationBody = ConflictCheckRequest
+    export type CheckConflictsMutationError = HTTPValidationError
+
+    /**
+ * @summary Check Conflicts
+ */
+export const useCheckConflicts = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkConflicts>>, TError,{data: ConflictCheckRequest}, TContext>, fetch?: RequestInit}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof checkConflicts>>,
+        TError,
+        {data: ConflictCheckRequest},
+        TContext
+      > => {
+      return useMutation(getCheckConflictsMutationOptions(options), queryClient);
+    }
+    /**
+ * @summary Create Reservation With Occurrences
+ */
+export type createReservationWithOccurrencesResponse201 = {
+  data: ReservationWithOccurrencesRead
+  status: 201
+}
+
+export type createReservationWithOccurrencesResponse422 = {
+  data: HTTPValidationError
+  status: 422
+}
+
+export type createReservationWithOccurrencesResponseSuccess = (createReservationWithOccurrencesResponse201) & {
+  headers: Headers;
+};
+export type createReservationWithOccurrencesResponseError = (createReservationWithOccurrencesResponse422) & {
+  headers: Headers;
+};
+
+export type createReservationWithOccurrencesResponse = (createReservationWithOccurrencesResponseSuccess | createReservationWithOccurrencesResponseError)
+
+export const getCreateReservationWithOccurrencesUrl = () => {
+
+
+
+
+  return `/api/reservations/reservations/with-occurrences`
+}
+
+export const createReservationWithOccurrences = async (reservationWithOccurrencesCreate: ReservationWithOccurrencesCreate, options?: RequestInit): Promise<createReservationWithOccurrencesResponse> => {
+
+  const res = await fetch(getCreateReservationWithOccurrencesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      reservationWithOccurrencesCreate,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createReservationWithOccurrencesResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as createReservationWithOccurrencesResponse
+}
+
+
+
+
+export const getCreateReservationWithOccurrencesMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReservationWithOccurrences>>, TError,{data: ReservationWithOccurrencesCreate}, TContext>, fetch?: RequestInit}
+): UseMutationOptions<Awaited<ReturnType<typeof createReservationWithOccurrences>>, TError,{data: ReservationWithOccurrencesCreate}, TContext> => {
+
+const mutationKey = ['createReservationWithOccurrences'];
+const {mutation: mutationOptions, fetch: fetchOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, fetch: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createReservationWithOccurrences>>, {data: ReservationWithOccurrencesCreate}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createReservationWithOccurrences(data,fetchOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateReservationWithOccurrencesMutationResult = NonNullable<Awaited<ReturnType<typeof createReservationWithOccurrences>>>
+    export type CreateReservationWithOccurrencesMutationBody = ReservationWithOccurrencesCreate
+    export type CreateReservationWithOccurrencesMutationError = HTTPValidationError
+
+    /**
+ * @summary Create Reservation With Occurrences
+ */
+export const useCreateReservationWithOccurrences = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReservationWithOccurrences>>, TError,{data: ReservationWithOccurrencesCreate}, TContext>, fetch?: RequestInit}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createReservationWithOccurrences>>,
+        TError,
+        {data: ReservationWithOccurrencesCreate},
+        TContext
+      > => {
+      return useMutation(getCreateReservationWithOccurrencesMutationOptions(options), queryClient);
     }
