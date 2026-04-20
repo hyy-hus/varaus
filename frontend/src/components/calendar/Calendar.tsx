@@ -9,14 +9,24 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '#/components/ui/h
 import { ContextMenu, ContextMenuContent, ContextMenuGroup, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuTrigger } from '#/components/ui/context-menu';
 import { DragDropProvider, useDraggable, useDroppable } from '@dnd-kit/react';
 
-interface Reservation {
-    id: number;
+export interface CalendarEvent {
+    id: string;
     name: string;
     description: string;
     start: Temporal.ZonedDateTime;
     end: Temporal.ZonedDateTime;
     isContinuedFromPreviousDay?: boolean;
     isContinuedInNextDay?: boolean;
+}
+
+interface CalendarProps {
+    events: CalendarEvent[];
+    startDate: Temporal.PlainDate;
+    visibleDays: number;
+
+    onStartDateChange: (date: Temporal.PlainDate) => void;
+    onVisibleDaysChange: (days: number) => void;
+    onEventDrop?: (eventId: string, newStart: Temporal.ZonedDateTime, newEnd: Temporal.ZonedDateTime) => void;
 }
 
 const localTimeZone = Temporal.Now.timeZoneId();
@@ -48,14 +58,14 @@ function HourColumn() {
     )
 }
 
-type PositionedReservation = Reservation & {
+type PositionedReservation = CalendarEvent & {
     widthPercent: number;
     leftOffsetPercent: number;
 };
 
-function processCluster(cluster: Reservation[]): PositionedReservation[] {
+function processCluster(cluster: CalendarEvent[]): PositionedReservation[] {
     const tracks: number[] = [];
-    const eventTracks: { event: Reservation; trackIndex: number }[] = [];
+    const eventTracks: { event: CalendarEvent; trackIndex: number }[] = [];
 
     for (const res of cluster) {
         let trackIndex = tracks.findIndex(trackEnd => trackEnd <= res.start.epochMilliseconds);
@@ -79,7 +89,7 @@ function processCluster(cluster: Reservation[]): PositionedReservation[] {
     }));
 }
 
-function packReservations(reservations: Reservation[]): PositionedReservation[] {
+function packReservations(reservations: CalendarEvent[]): PositionedReservation[] {
     if (reservations.length === 0) return [];
 
     const sorted = [...reservations].sort((a, b) => {
@@ -90,7 +100,7 @@ function packReservations(reservations: Reservation[]): PositionedReservation[] 
     });
 
     const positioned: PositionedReservation[] = [];
-    let currentCluster: Reservation[] = [];
+    let currentCluster: CalendarEvent[] = [];
     let clusterEndTime = 0;
 
     for (const res of sorted) {
@@ -241,7 +251,7 @@ function EventCard({ res, startRow, endRow }: EventCardProps) {
 }
 
 interface ColumnProps {
-    reservations: Reservation[];
+    reservations: CalendarEvent[];
     columnId: number;
 }
 
@@ -308,7 +318,7 @@ function CurrentTimeLine() {
 }
 
 function splitReservationsIntoDays(
-    reservations: Reservation[],
+    reservations: CalendarEvent[],
     days: Temporal.PlainDate[],
     timeZone: string
 ) {
@@ -316,7 +326,7 @@ function splitReservationsIntoDays(
         const dayStart = day.toZonedDateTime({ timeZone });
         const dayEnd = dayStart.add({ days: 1 });
 
-        const chunks: Reservation[] = [];
+        const chunks: CalendarEvent[] = [];
 
         for (const res of reservations) {
             if (res.start.epochMilliseconds < dayEnd.epochMilliseconds &&
@@ -347,81 +357,23 @@ function splitReservationsIntoDays(
     });
 }
 
-export function Calendar() {
-    const [reservationsData, setReservationsData] = useState<Reservation[]>([
-        {
-            id: 0,
-            name: "Reservation A",
-            description: "On track #1",
-            start: Temporal.Instant.from("2026-04-17T06:00:00Z").toZonedDateTimeISO(localTimeZone),
-            end: Temporal.Instant.from("2026-04-17T10:00:00Z").toZonedDateTimeISO(localTimeZone),
-        },
-        {
-            id: 1,
-            name: "Reservation B",
-            description: "On track #2",
-            start: Temporal.Instant.from("2026-04-17T09:00:00Z").toZonedDateTimeISO(localTimeZone),
-            end: Temporal.Instant.from("2026-04-17T14:00:00Z").toZonedDateTimeISO(localTimeZone),
-        },
-        {
-            id: 2,
-            name: "Reservation C",
-            description: "On track #1",
-            start: Temporal.Instant.from("2026-04-17T11:00:00Z").toZonedDateTimeISO(localTimeZone),
-            end: Temporal.Instant.from("2026-04-17T12:00:00Z").toZonedDateTimeISO(localTimeZone),
-        },
-        {
-            id: 3,
-            name: "Reservation D",
-            description: "On track #1",
-            start: Temporal.Instant.from("2026-04-17T15:00:00Z").toZonedDateTimeISO(localTimeZone),
-            end: Temporal.Instant.from("2026-04-17T16:00:00Z").toZonedDateTimeISO(localTimeZone),
-        },
-        {
-            id: 4,
-            name: "Reservation E",
-            description: "On track #2 ",
-            start: Temporal.Instant.from("2026-04-17T15:15:00Z").toZonedDateTimeISO(localTimeZone),
-            end: Temporal.Instant.from("2026-04-17T16:00:00Z").toZonedDateTimeISO(localTimeZone),
-        },
-        {
-            id: 5,
-            name: "Reservation F",
-            description: "On track #3",
-            start: Temporal.Instant.from("2026-04-17T15:30:00Z").toZonedDateTimeISO(localTimeZone),
-            end: Temporal.Instant.from("2026-04-17T16:00:00Z").toZonedDateTimeISO(localTimeZone),
-        },
-        {
-            id: 6,
-            name: "Reservation G",
-            description: "Alone, but right after D-E cluster",
-            start: Temporal.Instant.from("2026-04-17T16:00:00Z").toZonedDateTimeISO(localTimeZone),
-            end: Temporal.Instant.from("2026-04-17T17:00:00Z").toZonedDateTimeISO(localTimeZone),
-        },
-        {
-            id: 7,
-            name: "Reservation H",
-            description: "Crosses day lines!",
-            start: Temporal.Instant.from("2026-04-17T20:00:00Z").toZonedDateTimeISO(localTimeZone),
-            end: Temporal.Instant.from("2026-04-18T04:00:00Z").toZonedDateTimeISO(localTimeZone),
-        },
-    ]);
-
-    function getCurrentDate() {
-        return Temporal.Now.plainDateISO(localTimeZone);
-    }
-
-    const [startDate, setStartDate] = useState(getCurrentDate());
-    const [visibleDays, setVisibleDays] = useState(3);
+export function Calendar({
+    events,
+    startDate,
+    visibleDays,
+    onStartDateChange,
+    onVisibleDaysChange,
+    onEventDrop
+}: CalendarProps) {
 
     const targetDays = Array.from({ length: visibleDays }).map((_, i) => {
         return startDate.add({ days: i });
     });
 
-    const columnsData = splitReservationsIntoDays(reservationsData, targetDays, localTimeZone);
+    const columnsData = splitReservationsIntoDays(events, targetDays, localTimeZone);
 
     function focusCurrentDay() {
-        setStartDate(getCurrentDate());
+        onStartDateChange(Temporal.Now.plainDateISO(localTimeZone));
     }
 
     function focusCurrentHour(style: 'auto' | 'smooth' | 'instant' = 'instant') {
@@ -464,13 +416,11 @@ export function Calendar() {
                         <Select value={String(visibleDays)}
                             onValueChange={(val) => {
                                 const newVisibleDays = Number(val);
-                                setVisibleDays(newVisibleDays);
+                                onVisibleDaysChange(newVisibleDays);
 
                                 if (newVisibleDays === 5 || newVisibleDays === 7) {
-                                    setStartDate(prev => {
-                                        const daysToSubtract = prev.dayOfWeek - 1;
-                                        return prev.subtract({ days: daysToSubtract });
-                                    });
+                                    const daysToSubtract = startDate.dayOfWeek - 1;
+                                    onStartDateChange(startDate.subtract({ days: daysToSubtract }));
                                 }
                             }}
                         >
@@ -490,34 +440,37 @@ export function Calendar() {
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
+
                         <Button size="sm" variant="outline"
-                            onClick={() => setStartDate(prev => {
+                            onClick={() => {
                                 if (visibleDays === 5 || visibleDays === 7) {
-                                    const currentMonday = prev.subtract({ days: prev.dayOfWeek - 1 });
-                                    return currentMonday.subtract({ days: 7 });
+                                    const currentMonday = startDate.subtract({ days: startDate.dayOfWeek - 1 });
+                                    onStartDateChange(currentMonday.subtract({ days: 7 }));
+                                } else {
+                                    onStartDateChange(startDate.subtract({ days: visibleDays }));
                                 }
-                                return prev.subtract({ days: visibleDays });
-                            })}
+                            }}
                         >
                             <ChevronsLeft />
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => setStartDate(prev => prev.subtract({ days: 1 }))}>
+                        <Button size="sm" variant="outline" onClick={() => onStartDateChange(startDate.subtract({ days: 1 }))}>
                             <ChevronLeft />
                         </Button>
                         <Button className='inline-flex' variant="outline" onClick={() => focusNow()}>
                             Now
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => setStartDate(prev => prev.add({ days: 1 }))}>
+                        <Button size="sm" variant="outline" onClick={() => onStartDateChange(startDate.add({ days: 1 }))}>
                             <ChevronRight />
                         </Button>
                         <Button size="sm" variant="outline"
-                            onClick={() => setStartDate(prev => {
+                            onClick={() => {
                                 if (visibleDays === 5 || visibleDays === 7) {
-                                    const currentMonday = prev.subtract({ days: prev.dayOfWeek - 1 });
-                                    return currentMonday.add({ days: 7 });
+                                    const currentMonday = startDate.add({ days: startDate.dayOfWeek - 1 });
+                                    onStartDateChange(currentMonday.add({ days: 7 }));
+                                } else {
+                                    onStartDateChange(startDate.add({ days: visibleDays }));
                                 }
-                                return prev.add({ days: visibleDays });
-                            })}
+                            }}
                         >
                             <ChevronsRight />
                         </Button>
@@ -535,34 +488,28 @@ export function Calendar() {
 
                             const dropData = target.data as { colId: number; rowId: number } | undefined;
 
-                            if (dropData) {
-                                setReservationsData(prev => {
-                                    const originalId = Number(String(source?.id ?? 0).split('_chunk_')[0]);
+                            if (dropData && onEventDrop) {
+                                const originalId = String(source?.id ?? "").split('_chunk_')[0];
+                                const activeRes = events.find(r => r.id === originalId);
+                                if (!activeRes) return;
 
-                                    const activeRes = prev.find(r => r.id === originalId);
-                                    if (!activeRes) return prev;
+                                const durationMillis = activeRes.end.epochMilliseconds - activeRes.start.epochMilliseconds;
+                                const targetDate = targetDays[dropData.colId];
 
-                                    const durationMillis = activeRes.end.epochMilliseconds - activeRes.start.epochMilliseconds;
-
-                                    const targetDate = targetDays[dropData.colId];
-                                    const newStart = targetDate.toZonedDateTime({
-                                        timeZone: localTimeZone,
-                                        plainTime: Temporal.PlainTime.from({
-                                            hour: Math.floor(dropData.rowId / 4),
-                                            minute: (dropData.rowId % 4) * 15
-                                        })
-                                    });
-
-                                    const newEnd = Temporal.Instant.fromEpochMilliseconds(
-                                        newStart.epochMilliseconds + durationMillis
-                                    ).toZonedDateTimeISO(localTimeZone);
-
-                                    return prev.map(r =>
-                                        r.id === originalId
-                                            ? { ...r, start: newStart, end: newEnd }
-                                            : r
-                                    );
+                                const newStart = targetDate.toZonedDateTime({
+                                    timeZone: localTimeZone,
+                                    plainTime: Temporal.PlainTime.from({
+                                        hour: Math.floor(dropData.rowId / 4),
+                                        minute: (dropData.rowId % 4) * 15
+                                    })
                                 });
+
+                                const newEnd = Temporal.Instant.fromEpochMilliseconds(
+                                    newStart.epochMilliseconds + durationMillis
+                                ).toZonedDateTimeISO(localTimeZone);
+
+                                // 2. Bubble the event up instead of setting local state!
+                                onEventDrop(originalId, newStart, newEnd);
                             }
                         }}
                     >
