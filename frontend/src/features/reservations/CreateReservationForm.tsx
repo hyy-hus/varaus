@@ -8,8 +8,22 @@ import { Field, FieldSet } from "#/components/ui/field"
 import { Button } from "#/components/ui/button"
 import { t } from "i18next"
 import { toast } from "sonner"
+import { Temporal } from "@js-temporal/polyfill"
 
 export function CreateReservationForm() {
+
+    const now = Temporal.Now.plainDateTimeISO();
+
+    const startOfHour = now.with({
+        minute: 0,
+        second: 0,
+        millisecond: 0,
+        microsecond: 0,
+        nanosecond: 0
+    });
+
+    const endOfHour = startOfHour.add({ hours: 1 });
+
     const form = useForm<ReservationFormValues>({
         resolver: zodResolver(reservationSchema),
         mode: "onTouched",
@@ -17,7 +31,9 @@ export function CreateReservationForm() {
             name: "",
             description: "",
             status: "pending",
-        }
+            startDateTime: startOfHour,
+            endDateTime: endOfHour,
+        },
     })
 
     const createMutation = useCreateReservation()
