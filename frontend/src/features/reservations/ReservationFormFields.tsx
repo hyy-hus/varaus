@@ -12,8 +12,7 @@ import { RRule, Frequency, type ByWeekday } from "rrule";
 import { Temporal } from "@js-temporal/polyfill";
 import { Button } from "#/components/ui/button";
 import { useReadResources } from "#/api/endpoints/resources/resources";
-import type { ResourceRead } from "#/api/models";
-import { Combobox, ComboboxChip, ComboboxChips, ComboboxChipsInput, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList, ComboboxValue, useComboboxAnchor } from "#/components/ui/combobox";
+import { Combobox, ComboboxChip, ComboboxChips, ComboboxChipsInput, ComboboxContent, ComboboxEmpty, ComboboxItem, ComboboxList, ComboboxValue, useComboboxAnchor } from "#/components/ui/combobox";
 import { XIcon } from "lucide-react";
 
 
@@ -22,13 +21,10 @@ interface ReservationFormFieldsProps {
 }
 
 interface RRuleOptionsProps {
-    // The start time of the master reservation
     baseStartTime?: Temporal.PlainDateTime;
-    // Emits the RRULE string (e.g., "FREQ=WEEKLY;INTERVAL=1;COUNT=10")
     onChange?: (rruleString?: string) => void;
 }
 
-// Helper array to render the Weekday buttons
 const WEEKDAYS = [
     { label: "Mo", value: RRule.MO },
     { label: "Tu", value: RRule.TU },
@@ -326,16 +322,13 @@ export function ComboboxMultiple({ items, value = [], onValueChange }: ComboboxM
 export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
     const { t } = useTranslation();
 
-    // 1. Actively watch the start date and the rrule string from the form state
     const startDateTime = useWatch({ control, name: "startDateTime" });
     const rruleString = useWatch({ control, name: "rrule" });
 
-    // 2. Automatically calculate the preview occurrences whenever the date or rule changes
     const occurrencesPreview = useMemo(() => {
         if (!startDateTime || !rruleString) return [];
 
         try {
-            // 1. Anchor the rule to the current start date/time
             const dtstart = new Date(
                 startDateTime.year,
                 startDateTime.month - 1,
@@ -344,20 +337,15 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                 startDateTime.minute
             );
 
-            // 2. Let RRule safely parse your "FREQ=WEEKLY;..." string into an options object
             const options = RRule.parseString(rruleString);
 
-            // 3. Inject the start date into those options
             options.dtstart = dtstart;
 
-            // 4. Safely generate the rule from the pure object!
             const rule = new RRule(options);
 
-            // Limit the preview to 50 items so the browser doesn't freeze
             return rule.all((_, i) => i < 50);
 
         } catch (e) {
-            // NEVER swallow errors silently! This will save you hours of debugging.
             console.error("Failed to calculate RRULE occurrences:", e);
             return [];
         }
@@ -366,10 +354,6 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
     const resourcesResponse = useReadResources();
     const resourcesData = resourcesResponse?.data?.data;
     const resources = Array.isArray(resourcesData) ? resourcesData : [];
-
-    const anchor = useComboboxAnchor();
-
-    const [comboValues, setComboValues] = useState<any[]>([]);
 
 
     return (
@@ -533,7 +517,6 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                     />
                 </FieldGroup>
 
-                {/* Wire the RRULE Options directly into the form! */}
                 <Controller
                     name="rrule"
                     control={control}
@@ -545,7 +528,6 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                     )}
                 />
 
-                {/* THE LIVE PREVIEW UI */}
                 {occurrencesPreview.length > 0 && (
                     <div className="mt-4 rounded-md border bg-muted/20 p-4">
                         <h4 className="mb-3 text-sm font-medium">
