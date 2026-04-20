@@ -1,7 +1,8 @@
+from pydantic import BaseModel
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, status, Depends, HTTPException
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func, or_, col
 from psycopg.types.range import Range
 
 from core.database import get_session
@@ -174,3 +175,119 @@ def delete_occurrence(
     occ.deleted_at = datetime.now(timezone.utc)
     session.add(occ)
     session.commit()
+
+
+class Interval(BaseModel):
+    start: datetime
+    end: datetime
+
+
+class ConflictCheckRequest(BaseModel):
+    resourceIds: list[str]
+    intervals: list[Interval]
+
+
+class ConflictDetail(BaseModel):
+    resource_id: uuid.UUID
+    start: datetime
+    end: datetime
+
+
+class ConflictCheckResponse(BaseModel):
+    has_conflicts: bool
+    conflicts: list[ConflictDetail]
+
+
+# ==========================================
+# COMPOUND ROUTES
+# ==========================================
+
+
+@router.post(
+    "/conflicts", status_code=status.HTTP_200_OK, response_model=ConflictCheckResponse
+)
+def check_conflicts(
+    *, session: Session = Depends(get_session), request: ConflictCheckRequest
+):
+    if not request.resourceIds or not request.intervals:
+        return ConflictCheckResponse(has_conflicts=False, conflicts=[])
+
+    overlap_conditions = [
+        Occurrence.time_range.op("&&")(func.tstzrange(interval.start, interval.end))
+        for interval in request.intervals
+    ]
+
+    # 2. Query the database
+    query = select(Occurrence).where(
+        col(Occurrence.resource_id).in_(request.resourceIds),
+        col(Occurrence.deleted_at).is_(None),
+        or_(*overlap_conditions),
+    )
+
+    conflicting_occurrences = session.exec(query).all()
+
+    conflicts = []
+    for occ in conflicting_occurrences:
+        conflicts.append(
+            ConflictDetail(
+                resource_id=occ.resource_id,
+                start=occ.time_range.lower,
+                end=occ.time_range.upper,
+            )
+        )
+
+    return ConflictCheckResponse(has_conflicts=len(conflicts) > 0, conflicts=conflicts)
+
+
+class ReservationWithOccurrencesCreate(ReservationCreate):
+    resource_ids: list[uuid.UUID]
+    intervals: list[Interval]
+
+
+class ReservationWithOccurrencesRead(ReservationRead):
+    occurrences: list[OccurrenceRead] = []
+
+
+@router.post(
+    "/reservations/with-occurrences",
+    response_model=ReservationWithOccurrencesRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_reservation_with_occurrences(
+    *,
+    session: Session = Depends(get_session),
+    payload: ReservationWithOccurrencesCreate,
+):
+    db_reservation = Reservation(
+        **payload.model_dump(exclude={"resource_ids", "intervals"})
+    )
+
+    session.add(db_reservation)
+
+    session.flush()
+
+    db_occurrences = []
+
+    for resource_id in payload.resource_ids:
+        for interval in payload.intervals:
+            db_range = Range(interval.start, interval.end, bounds="[)")
+
+            db_occ = Occurrence(
+                reservation_id=db_reservation.id,
+                resource_id=resource_id,
+                time_range=db_range,
+            )
+            session.add(db_occ)
+            db_occurrences.append(db_occ)
+
+    session.commit()
+
+    session.refresh(db_reservation)
+
+    mapped_occurrences = [
+        map_occurrence_to_read(occ) for occ in db_reservation.occurrences
+    ]
+
+    return ReservationWithOccurrencesRead(
+        **db_reservation.model_dump(), occurrences=mapped_occurrences
+    )
