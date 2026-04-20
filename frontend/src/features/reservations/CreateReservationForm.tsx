@@ -33,6 +33,7 @@ export function CreateReservationForm() {
             status: "pending",
             startDateTime: startOfHour,
             endDateTime: endOfHour,
+            resourceIds: [],
         },
     })
 

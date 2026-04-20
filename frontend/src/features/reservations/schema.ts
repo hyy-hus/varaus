@@ -18,7 +18,8 @@ export const reservationSchema = z.object({
     endDateTime: z.custom<Temporal.PlainDateTime>((val) => {
         return val instanceof Temporal.PlainDateTime;
     }, "Invalid end date"),
-    status: z.enum(['pending', 'confirmed', 'cancelled', 'informative'])
+    status: z.enum(['pending', 'confirmed', 'cancelled', 'informative']),
+    resourceIds: z.array(z.uuid()).min(1, "Please select at least one resource")
 }) satisfies z.ZodType<ReservationCreate>;
 
 export type ReservationFormValues = z.infer<typeof reservationSchema>

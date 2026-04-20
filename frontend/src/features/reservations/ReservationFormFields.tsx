@@ -8,9 +8,13 @@ import { DateTimePicker } from "#/components/DateTimePicker";
 import { useEffect, useMemo, useState } from "react";
 import { Switch } from "#/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select";
-import { RRule, Frequency } from "rrule";
+import { RRule, Frequency, type ByWeekday } from "rrule";
 import { Temporal } from "@js-temporal/polyfill";
 import { Button } from "#/components/ui/button";
+import { useReadResources } from "#/api/endpoints/resources/resources";
+import type { ResourceRead } from "#/api/models";
+import { Combobox, ComboboxChip, ComboboxChips, ComboboxChipsInput, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList, ComboboxValue, useComboboxAnchor } from "#/components/ui/combobox";
+import { XIcon } from "lucide-react";
 
 
 interface ReservationFormFieldsProps {
@@ -241,6 +245,84 @@ export function RRuleOptions({ baseStartTime, onChange }: RRuleOptionsProps) {
     );
 }
 
+interface ItemProp {
+    key: string;
+    value: string;
+}
+
+interface ComboboxMultipleProps {
+    items: ItemProp[];
+    value?: string[];
+    onValueChange: (keys: string[]) => void;
+}
+
+export function ComboboxMultiple({ items, value = [], onValueChange }: ComboboxMultipleProps) {
+    const anchor = useComboboxAnchor();
+
+    const selectedItems = value
+        .map(id => items.find(i => i.key === id))
+        .filter((item): item is ItemProp => item !== undefined);
+
+    const handleComboChange = (selectedObjects: ItemProp[]) => {
+        const exactIds = selectedObjects.map(item => item.key);
+        onValueChange(exactIds);
+    };
+
+    return (
+        <Combobox
+            multiple
+            autoHighlight
+            items={items}
+            value={selectedItems}
+            onValueChange={handleComboChange}
+        >
+            <div className="relative w-full max-w-xs">
+                <ComboboxChips ref={anchor} className="w-full pr-10">
+                    <ComboboxValue>
+                        {(selected: ItemProp[]) => (
+                            <>
+                                {selected.map((item: ItemProp) => (
+                                    <ComboboxChip key={item.key}>
+                                        {item.value}
+                                    </ComboboxChip>
+                                ))}
+                                <ComboboxChipsInput placeholder="Add resource..." />
+                            </>
+                        )}
+                    </ComboboxValue>
+                </ComboboxChips>
+
+                {selectedItems.length > 0 && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-foreground"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation(); // Prevent the combobox dropdown from toggling!
+                            handleComboChange([]); // Clear the state!
+                        }}
+                    >
+                        <XIcon className="h-4 w-4" />
+                    </Button>
+                )}
+            </div>
+
+            <ComboboxContent anchor={anchor}>
+                <ComboboxEmpty>No items found.</ComboboxEmpty>
+                <ComboboxList>
+                    {(item: ItemProp) => (
+                        <ComboboxItem key={item.key} value={item}>
+                            {item.value}
+                        </ComboboxItem>
+                    )}
+                </ComboboxList>
+            </ComboboxContent>
+        </Combobox>
+    );
+}
+
 export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
     const { t } = useTranslation();
 
@@ -272,7 +354,7 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
             const rule = new RRule(options);
 
             // Limit the preview to 50 items so the browser doesn't freeze
-            return rule.all((date, i) => i < 50);
+            return rule.all((_, i) => i < 50);
 
         } catch (e) {
             // NEVER swallow errors silently! This will save you hours of debugging.
@@ -280,6 +362,15 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
             return [];
         }
     }, [startDateTime, rruleString]);
+
+    const resourcesResponse = useReadResources();
+    const resourcesData = resourcesResponse?.data?.data;
+    const resources = Array.isArray(resourcesData) ? resourcesData : [];
+
+    const anchor = useComboboxAnchor();
+
+    const [comboValues, setComboValues] = useState<any[]>([]);
+
 
     return (
         <FieldGroup>
@@ -380,7 +471,23 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                 </FieldDescription>
 
                 <FieldGroup>
-                    fields...
+                    <Controller
+                        name="resourceIds"
+                        control={control}
+                        render={({ field, fieldState }) => {
+                            return (
+                                <>
+                                    <ComboboxMultiple
+                                        {...field}
+                                        onValueChange={field.onChange}
+                                        items={resources?.map(r => ({ key: r.id, value: r.name })) ?? []}
+                                    />
+                                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                                </>
+                            );
+                        }}
+                    />
+
                 </FieldGroup>
 
             </FieldSet>
