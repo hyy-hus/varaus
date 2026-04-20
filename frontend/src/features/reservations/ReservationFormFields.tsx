@@ -1,323 +1,25 @@
 import { Controller, useWatch, type Control } from "react-hook-form"
 import { useTranslation } from "react-i18next"
+import { useEffect, useMemo } from "react";
+import { useDebounce } from "@uidotdev/usehooks";
+import { XIcon } from "lucide-react";
+
 import type { ReservationFormValues } from "./schema";
-import { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "#/components/ui/field";
+import type { ConflictCheckRequest } from "#/api/models";
+import { calculateOccurrences } from "#/lib/rrule-utils";
+import { useCheckConflictsQuery } from "#/lib/hooks/checkConflicts";
+import { useReadResources } from "#/api/endpoints/resources/resources";
+
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet } from "#/components/ui/field";
 import { Input } from "#/components/ui/input";
 import { InputGroup, InputGroupAddon, InputGroupText, InputGroupTextarea } from "#/components/ui/input-group";
 import { DateTimePicker } from "#/components/DateTimePicker";
-import { useEffect, useMemo, useState } from "react";
-import { Switch } from "#/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "#/components/ui/select";
-import { RRule, Frequency, type ByWeekday } from "rrule";
-import { Temporal } from "@js-temporal/polyfill";
-import { Button } from "#/components/ui/button";
-import { useReadResources } from "#/api/endpoints/resources/resources";
-import { Combobox, ComboboxChip, ComboboxChips, ComboboxChipsInput, ComboboxContent, ComboboxEmpty, ComboboxItem, ComboboxList, ComboboxValue, useComboboxAnchor } from "#/components/ui/combobox";
-import { XIcon } from "lucide-react";
-import { calculateOccurrences } from "#/lib/rrule-utils";
-import { useDebounce } from "@uidotdev/usehooks";
-import type { ConflictCheckRequest } from "#/api/models";
-import { useCheckConflictsQuery } from "#/lib/hooks/checkConflicts";
 
+import { RRuleOptions } from "#/components/RRuleOptions";
+import { ComboboxMultiple } from "#/components/ComboboxMultiple";
 
 interface ReservationFormFieldsProps {
     control: Control<ReservationFormValues>
-}
-
-interface RRuleOptionsProps {
-    value?: string;
-    baseStartTime?: Temporal.PlainDateTime;
-    onChange?: (rruleString?: string) => void;
-}
-
-const WEEKDAYS = [
-    { label: "Mo", value: RRule.MO },
-    { label: "Tu", value: RRule.TU },
-    { label: "We", value: RRule.WE },
-    { label: "Th", value: RRule.TH },
-    { label: "Fr", value: RRule.FR },
-    { label: "Sa", value: RRule.SA },
-    { label: "Su", value: RRule.SU },
-];
-
-export function RRuleOptions({ value, baseStartTime, onChange }: RRuleOptionsProps) {
-    const [isRecurring, setIsRecurring] = useState<boolean>(false);
-
-    const [interval, setInterval] = useState<number>(1);
-    const [freq, setFreq] = useState<Frequency>(RRule.WEEKLY);
-
-    const initialWeekday = baseStartTime ? WEEKDAYS[baseStartTime.dayOfWeek - 1].value : RRule.MO;
-    const [selectedWeekdays, setSelectedWeekdays] = useState<ByWeekday[]>([initialWeekday]);
-
-    const [monthDay, setMonthDay] = useState<number>(baseStartTime?.day || 1);
-
-    const [endMode, setEndMode] = useState<"count" | "until">("count");
-    const [count, setCount] = useState<number>(10);
-    const [untilDate, setUntilDate] = useState<string>("");
-
-    const toggleWeekday = (day: ByWeekday) => {
-        setSelectedWeekdays((prev) => {
-            if (prev.includes(day)) {
-                // Prevent deselecting the last day
-                if (prev.length === 1) return prev;
-                return prev.filter((d) => d !== day);
-            }
-            return [...prev, day];
-        });
-    };
-
-    useEffect(() => {
-        if (!value) {
-            setIsRecurring(false);
-        }
-    }, [value]);
-
-    useEffect(() => {
-        if (!isRecurring || !baseStartTime) {
-            onChange?.(undefined);
-            return;
-        }
-
-        const dtstart = new Date(
-            baseStartTime.year,
-            baseStartTime.month - 1,
-            baseStartTime.day,
-            baseStartTime.hour,
-            baseStartTime.minute
-        );
-
-        let until: Date | undefined;
-        if (endMode === "until" && untilDate) {
-            const parts = untilDate.split("-");
-            if (parts.length === 3) {
-                until = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 23, 59, 59);
-            }
-        }
-
-        const rule = new RRule({
-            freq,
-            interval,
-            dtstart,
-            ...(endMode === "count" ? { count } : {}),
-            ...(endMode === "until" && until ? { until } : {}),
-            ...(freq === RRule.WEEKLY ? { byweekday: selectedWeekdays } : {}),
-            ...(freq === RRule.MONTHLY ? { bymonthday: [monthDay] } : {}),
-        });
-
-        const ruleString = rule.toString().split('\n').find(line => line.startsWith('RRULE:'))?.replace('RRULE:', '');
-        onChange?.(ruleString);
-
-    }, [isRecurring, interval, freq, endMode, count, untilDate, selectedWeekdays, monthDay, baseStartTime, onChange]);
-
-    return (
-        <FieldGroup className="w-full rounded-lg border p-4 bg-muted/20">
-            {/* The Master Switch */}
-            <Field orientation="horizontal" className="flex justify-between w-full">
-                <FieldContent>
-                    <FieldLabel>Is the event recurring?</FieldLabel>
-                    <FieldDescription>
-                        Set up a repeating schedule for this reservation.
-                    </FieldDescription>
-                </FieldContent>
-                <Switch
-                    id="switch-recurring"
-                    checked={isRecurring}
-                    onCheckedChange={(val) => setIsRecurring(val)}
-                />
-            </Field>
-
-            {/* The Hidden Settings Menu */}
-            {isRecurring && (
-                <div className="mt-0 flex flex-col gap-6 border-t pt-6">
-
-                    {/* FREQUENCY ROW */}
-                    <div className="flex flex-col gap-2">
-                        <FieldLabel>Repeats every</FieldLabel>
-                        <div className="flex items-center gap-3">
-                            <Input
-                                type="number"
-                                min={1}
-                                value={interval}
-                                onChange={(e) => setInterval(parseInt(e.target.value) || 1)}
-                                className="w-20"
-                            />
-                            <Select
-                                value={freq.toString()}
-                                onValueChange={(val) => setFreq(parseInt(val))}
-                            >
-                                <SelectTrigger className="w-32">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value={RRule.DAILY.toString()}>days</SelectItem>
-                                    <SelectItem value={RRule.WEEKLY.toString()}>weeks</SelectItem>
-                                    <SelectItem value={RRule.MONTHLY.toString()}>months</SelectItem>
-                                    <SelectItem value={RRule.YEARLY.toString()}>years</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    {/* DYNAMIC "REPEATS ON" ROW */}
-                    {freq === RRule.WEEKLY && (
-                        <div className="flex flex-col gap-2">
-                            <FieldLabel>Repeats on</FieldLabel>
-                            <div className="flex flex-wrap gap-2">
-                                {WEEKDAYS.map((day) => (
-                                    <Button
-                                        key={day.label}
-                                        type="button"
-                                        variant={selectedWeekdays.includes(day.value) ? "default" : "outline"}
-                                        className={`h-10 w-10 rounded-full p-0 font-semibold ${selectedWeekdays.includes(day.value) ? "" : "text-muted-foreground"
-                                            }`}
-                                        onClick={() => toggleWeekday(day.value)}
-                                    >
-                                        {day.label}
-                                    </Button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {freq === RRule.MONTHLY && (
-                        <div className="flex flex-col gap-2">
-                            <FieldLabel>Repeats on</FieldLabel>
-                            <div className="flex items-center gap-3">
-                                <span className="text-sm text-muted-foreground">Day</span>
-                                <Input
-                                    type="number"
-                                    min={1}
-                                    max={31}
-                                    value={monthDay}
-                                    onChange={(e) => setMonthDay(parseInt(e.target.value) || 1)}
-                                    className="w-20"
-                                />
-                                <span className="text-sm text-muted-foreground">of the month</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* END CONDITION ROW */}
-                    <div className="flex flex-col gap-2">
-                        <FieldLabel>Ends</FieldLabel>
-                        <div className="flex flex-wrap items-center gap-3">
-                            <Select
-                                value={endMode}
-                                onValueChange={(val: "count" | "until") => setEndMode(val)}
-                            >
-                                <SelectTrigger className="w-32">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="count">After</SelectItem>
-                                    <SelectItem value="until">On date</SelectItem>
-                                </SelectContent>
-                            </Select>
-
-                            {endMode === "count" ? (
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        type="number"
-                                        min={1}
-                                        value={count}
-                                        onChange={(e) => setCount(parseInt(e.target.value) || 1)}
-                                        className="w-20"
-                                    />
-                                    <span className="text-sm text-muted-foreground">occurrences</span>
-                                </div>
-                            ) : (
-                                <Input
-                                    type="date"
-                                    value={untilDate}
-                                    onChange={(e) => setUntilDate(e.target.value)}
-                                    className="w-[160px] [&::-webkit-calendar-picker-indicator]:appearance-none"
-                                />
-                            )}
-                        </div>
-                    </div>
-
-                </div>
-            )}
-        </FieldGroup>
-    );
-}
-
-interface ItemProp {
-    key: string;
-    value: string;
-}
-
-interface ComboboxMultipleProps {
-    items: ItemProp[];
-    value?: string[];
-    onValueChange: (keys: string[]) => void;
-}
-
-export function ComboboxMultiple({ items, value = [], onValueChange }: ComboboxMultipleProps) {
-    const anchor = useComboboxAnchor();
-
-    const selectedItems = value
-        .map(id => items.find(i => i.key === id))
-        .filter((item): item is ItemProp => item !== undefined);
-
-    const handleComboChange = (selectedObjects: ItemProp[]) => {
-        const exactIds = selectedObjects.map(item => item.key);
-        onValueChange(exactIds);
-    };
-
-    return (
-        <Combobox
-            multiple
-            autoHighlight
-            items={items}
-            value={selectedItems}
-            onValueChange={handleComboChange}
-        >
-            <div className="relative w-full max-w-xs">
-                <ComboboxChips ref={anchor} className="w-full pr-10">
-                    <ComboboxValue>
-                        {(selected: ItemProp[]) => (
-                            <>
-                                {selected.map((item: ItemProp) => (
-                                    <ComboboxChip key={item.key}>
-                                        {item.value}
-                                    </ComboboxChip>
-                                ))}
-                                <ComboboxChipsInput placeholder="Add resource..." />
-                            </>
-                        )}
-                    </ComboboxValue>
-                </ComboboxChips>
-
-                {selectedItems.length > 0 && (
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 text-muted-foreground hover:text-foreground"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation(); // Prevent the combobox dropdown from toggling!
-                            handleComboChange([]); // Clear the state!
-                        }}
-                    >
-                        <XIcon className="h-4 w-4" />
-                    </Button>
-                )}
-            </div>
-
-            <ComboboxContent anchor={anchor}>
-                <ComboboxEmpty>No items found.</ComboboxEmpty>
-                <ComboboxList>
-                    {(item: ItemProp) => (
-                        <ComboboxItem key={item.key} value={item}>
-                            {item.value}
-                        </ComboboxItem>
-                    )}
-                </ComboboxList>
-            </ComboboxContent>
-        </Combobox>
-    );
 }
 
 export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
@@ -377,14 +79,11 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
     const resourcesData = resourcesResponse?.data?.data;
     const resources = Array.isArray(resourcesData) ? resourcesData : [];
 
-
     return (
         <FieldGroup>
             <FieldSet>
                 <FieldLegend>Reservation info</FieldLegend>
-                <FieldDescription>
-                    Information about the reservation
-                </FieldDescription>
+                <FieldDescription>Information about the reservation</FieldDescription>
 
                 <FieldGroup>
                     <Controller
@@ -392,9 +91,7 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                         control={control}
                         render={({ field, fieldState }) => (
                             <Field data-invalid={fieldState.invalid}>
-                                <FieldLabel htmlFor="reservations-form-name">
-                                    {t('reservations.nameLabel')}
-                                </FieldLabel>
+                                <FieldLabel htmlFor="reservations-form-name">{t('reservations.nameLabel')}</FieldLabel>
                                 <Input
                                     {...field}
                                     id="reservation-form-name"
@@ -412,9 +109,7 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                         control={control}
                         render={({ field, fieldState }) => (
                             <Field data-invalid={fieldState.invalid}>
-                                <FieldLabel htmlFor="reservation-form-description">
-                                    {t('reservations.descriptionLabel')}
-                                </FieldLabel>
+                                <FieldLabel htmlFor="reservation-form-description">{t('reservations.descriptionLabel')}</FieldLabel>
                                 <InputGroup>
                                     <InputGroupTextarea
                                         {...field}
@@ -442,9 +137,7 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
 
             <FieldSet>
                 <FieldLegend>Reserver</FieldLegend>
-                <FieldDescription>
-                    Information about the person / organisation reserving the resource
-                </FieldDescription>
+                <FieldDescription>Information about the person / organisation reserving the resource</FieldDescription>
 
                 <FieldGroup>
                     <Controller
@@ -452,9 +145,7 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                         control={control}
                         render={({ field, fieldState }) => (
                             <Field>
-                                <FieldLabel htmlFor="reservation-form-reserver">
-                                    {t('reservations.reserverLabel')}
-                                </FieldLabel>
+                                <FieldLabel htmlFor="reservation-form-reserver">{t('reservations.reserverLabel')}</FieldLabel>
                                 <Input
                                     {...field}
                                     id="reservation-form-reserver"
@@ -472,28 +163,23 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
 
             <FieldSet>
                 <FieldLegend>Resources</FieldLegend>
-                <FieldDescription>
-                    Which resources are being reserved
-                </FieldDescription>
+                <FieldDescription>Which resources are being reserved</FieldDescription>
 
                 <FieldGroup>
                     <Controller
                         name="resourceIds"
                         control={control}
-                        render={({ field, fieldState }) => {
-                            return (
-                                <>
-                                    <ComboboxMultiple
-                                        {...field}
-                                        onValueChange={field.onChange}
-                                        items={resources?.map(r => ({ key: r.id, value: r.name })) ?? []}
-                                    />
-                                    {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-                                </>
-                            );
-                        }}
+                        render={({ field, fieldState }) => (
+                            <>
+                                <ComboboxMultiple
+                                    {...field}
+                                    onValueChange={field.onChange}
+                                    items={resources?.map(r => ({ key: r.id, value: r.name })) ?? []}
+                                />
+                                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                            </>
+                        )}
                     />
-
                 </FieldGroup>
 
                 {/* THE LIVE CONFLICT WARNING UI */}
@@ -503,26 +189,19 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                             <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                             Checking availability...
                         </div>
-                    ) : conflictData?.has_conflicts ? (
+                    ) : conflictPayload && conflictData?.has_conflicts ? (
                         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
                             <strong className="block mb-2 text-base">⚠️ Resource Conflict Detected</strong>
                             <p className="mb-3">The following resources are already booked during your selected times:</p>
-
-                            {/* A scrollable list in case there are many conflicts */}
                             <ul className="max-h-40 space-y-2 overflow-y-auto rounded bg-destructive/5 p-2 border border-destructive/20">
                                 {conflictData.conflicts.map((conflict, idx) => {
-                                    // Look up the human-readable resource name!
                                     const resourceName = resources.find(r => r.id === conflict.resource_id)?.name || "Unknown Resource";
-
-                                    // Format the dates cleanly
                                     const startDate = new Date(conflict.start);
                                     const endDate = new Date(conflict.end);
 
                                     return (
                                         <li key={idx} className="flex flex-col gap-0.5 border-b border-destructive/10 pb-2 last:border-0 last:pb-0">
-                                            <div className="font-medium">
-                                                {resourceName}
-                                            </div>
+                                            <div className="font-medium">{resourceName}</div>
                                             <div className="text-xs opacity-90">
                                                 Conflicting event: <a href={`/reservations/${conflict.reservation_id}`} target="_blank" rel="noopener noreferrer" className="font-bold underline hover:text-destructive-foreground">
                                                     {conflict.reservation_name}
@@ -542,16 +221,13 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                         </div>
                     ) : null}
                 </div>
-
             </FieldSet>
 
             <FieldSeparator />
 
             <FieldSet>
                 <FieldLegend>Occurrences</FieldLegend>
-                <FieldDescription>
-                    When does the reservation happen
-                </FieldDescription>
+                <FieldDescription>When does the reservation happen</FieldDescription>
 
                 <FieldGroup className="flex-row gap-8">
                     <Controller
@@ -605,7 +281,6 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                         </h4>
                         <ul className="max-h-64 space-y-2 overflow-y-auto text-sm">
                             {occurrencesPreview.map((date, idx) => {
-                                // 1. Find all conflicts that land exactly on this occurrence's start time
                                 const dateConflicts = conflictData?.conflicts?.filter(
                                     (c) => new Date(c.start).getTime() === date.getTime()
                                 ) || [];
@@ -620,7 +295,6 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                                             : "border-transparent text-muted-foreground hover:bg-muted/30"
                                             }`}
                                     >
-                                        {/* Row 1: The Date and Time */}
                                         <div className="flex items-center gap-2">
                                             <span className="w-6 text-xs opacity-50">{idx + 1}.</span>
                                             <span className={hasConflict ? "font-semibold" : ""}>
@@ -639,13 +313,13 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                                             )}
                                         </div>
 
-                                        {/* Row 2: The Specific Resource Conflicts (Only shows if conflicts exist) */}
                                         {hasConflict && (
                                             <div className="ml-8 flex flex-col gap-1 text-xs mt-1">
                                                 {dateConflicts.map((conflict, cIdx) => {
                                                     const resourceName = resources.find(r => r.id === conflict.resource_id)?.name || "Unknown Resource";
                                                     return (
                                                         <div key={cIdx} className="flex items-start gap-1.5 opacity-90">
+                                                            <XIcon className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                                                             <span>
                                                                 <strong className="font-semibold">{resourceName}</strong> is already booked for{" "}
                                                                 <a
