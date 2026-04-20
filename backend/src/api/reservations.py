@@ -152,7 +152,7 @@ def read_occurrences(
 ):
     statement = (
         select(Occurrence)
-        .where(Occurrence.deleted_at is None)
+        .where(Occurrence.deleted_at == None)
         .offset(offset)
         .limit(limit)
     )
