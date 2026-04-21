@@ -39,6 +39,19 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
         return calculateOccurrences(startDateTime, rruleString);
     }, [startDateTime, rruleString]);
 
+    const previewDurationMs = useMemo(() => {
+        if (!startDateTime || !endDateTime) return 0;
+        const start = new Date(
+            startDateTime.year, startDateTime.month - 1, startDateTime.day,
+            startDateTime.hour, startDateTime.minute
+        );
+        const end = new Date(
+            endDateTime.year, endDateTime.month - 1, endDateTime.day,
+            endDateTime.hour, endDateTime.minute
+        );
+        return end.getTime() - start.getTime();
+    }, [startDateTime, endDateTime]);
+
     const conflictPayload = useMemo<ConflictCheckRequest | null>(() => {
         if (!debouncedStart || !debouncedEnd || debouncedResources.length === 0) return null;
 
@@ -281,9 +294,15 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                         </h4>
                         <ul className="max-h-64 space-y-2 overflow-y-auto text-sm">
                             {occurrencesPreview.map((date, idx) => {
-                                const dateConflicts = conflictData?.conflicts?.filter(
-                                    (c) => new Date(c.start).getTime() === date.getTime()
-                                ) || [];
+                                const occStart = date.getTime();
+                                const occEnd = occStart + previewDurationMs;
+
+                                const dateConflicts = conflictData?.conflicts?.filter((c) => {
+                                    const conflictStart = new Date(c.start).getTime();
+                                    const conflictEnd = new Date(c.end).getTime();
+
+                                    return occStart < conflictEnd && occEnd > conflictStart;
+                                }) || [];
 
                                 const hasConflict = dateConflicts.length > 0;
 
@@ -319,7 +338,6 @@ export function ReservationFormFields({ control }: ReservationFormFieldsProps) {
                                                     const resourceName = resources.find(r => r.id === conflict.resource_id)?.name || "Unknown Resource";
                                                     return (
                                                         <div key={cIdx} className="flex items-start gap-1.5 opacity-90">
-                                                            <XIcon className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                                                             <span>
                                                                 <strong className="font-semibold">{resourceName}</strong> is already booked for{" "}
                                                                 <a
