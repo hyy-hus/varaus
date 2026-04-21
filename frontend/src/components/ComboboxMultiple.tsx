@@ -33,7 +33,7 @@ export function ComboboxMultiple({ items, value = [], onValueChange }: ComboboxM
             value={selectedItems}
             onValueChange={handleComboChange}
         >
-            <div className="relative w-full max-w-xs">
+            <div className="relative w-full">
                 <ComboboxChips ref={anchor} className="w-full pr-10">
                     <ComboboxValue>
                         {(selected: ItemProp[]) => (
