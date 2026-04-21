@@ -43,7 +43,7 @@ export function ComboboxMultiple({ items, value = [], onValueChange }: ComboboxM
                                         {item.value}
                                     </ComboboxChip>
                                 ))}
-                                <ComboboxChipsInput placeholder="Add resource..." />
+                                <ComboboxChipsInput placeholder="Select resources..." />
                             </>
                         )}
                     </ComboboxValue>

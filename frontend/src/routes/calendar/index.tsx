@@ -121,33 +121,17 @@ function RouteComponent() {
 
     return (
         <div className="flex flex-col gap-4 p-6 max-w-[1600px] mx-auto">
-            <Card>
-                <CardHeader>
-                    <label className="text-sm font-medium text-muted-foreground">Filter by Resources</label>
-                </CardHeader>
-                <CardContent>
-                    <ComboboxMultiple
-                        items={comboboxItems}
-                        value={selectedResources}
-                        onValueChange={handleResourcesChange}
-                    />
-                </CardContent>
-            </Card>
-
-            {isLoading ? (
-                <div className="flex items-center justify-center h-64 text-muted-foreground animate-pulse">
-                    Loading calendar data...
-                </div>
-            ) : (
-                <Calendar
-                    events={events}
-                    startDate={startDate}
-                    visibleDays={visibleDays}
-                    onStartDateChange={handleStartDateChange}
-                    onVisibleDaysChange={handleVisibleDaysChange}
-                    onEventDrop={handleEventDrop}
-                />
-            )}
+            <Calendar
+                events={events}
+                startDate={startDate}
+                visibleDays={visibleDays}
+                resources={comboboxItems}
+                selectedResources={selectedResources}
+                onStartDateChange={handleStartDateChange}
+                onVisibleDaysChange={handleVisibleDaysChange}
+                onResourcesChange={handleResourcesChange}
+                onEventDrop={handleEventDrop}
+            />
         </div>
     );
 }

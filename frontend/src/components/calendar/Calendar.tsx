@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '#/components/ui/hover-card';
 import { ContextMenu, ContextMenuContent, ContextMenuGroup, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuTrigger } from '#/components/ui/context-menu';
 import { DragDropProvider, useDraggable, useDroppable } from '@dnd-kit/react';
+import { ComboboxMultiple, type ItemProp } from '../ComboboxMultiple';
 
 export interface CalendarEvent {
     id: string;
@@ -23,9 +24,12 @@ interface CalendarProps {
     events: CalendarEvent[];
     startDate: Temporal.PlainDate;
     visibleDays: number;
+    resources: ItemProp[];
+    selectedResources: string[];
 
     onStartDateChange: (date: Temporal.PlainDate) => void;
     onVisibleDaysChange: (days: number) => void;
+    onResourcesChange: (resources: string[]) => void;
     onEventDrop?: (eventId: string, newStart: Temporal.ZonedDateTime, newEnd: Temporal.ZonedDateTime) => void;
 }
 
@@ -361,8 +365,11 @@ export function Calendar({
     events,
     startDate,
     visibleDays,
+    resources,
+    selectedResources,
     onStartDateChange,
     onVisibleDaysChange,
+    onResourcesChange,
     onEventDrop
 }: CalendarProps) {
 
@@ -409,72 +416,73 @@ export function Calendar({
     return (
         <Card>
             <CardHeader>
-                <div className='flex justify-between items-center'>
-                    <h1 className='text-xl font-bold'>Calendar</h1>
+                <div className='flex justify-between items-center gap-2'>
+                    <ComboboxMultiple
+                        items={resources}
+                        value={selectedResources}
+                        onValueChange={onResourcesChange}
+                    />
+                    <Select value={String(visibleDays)}
+                        onValueChange={(val) => {
+                            const newVisibleDays = Number(val);
+                            onVisibleDaysChange(newVisibleDays);
 
-                    <div className='flex gap-2 items-center'>
-                        <Select value={String(visibleDays)}
-                            onValueChange={(val) => {
-                                const newVisibleDays = Number(val);
-                                onVisibleDaysChange(newVisibleDays);
+                            if (newVisibleDays === 5 || newVisibleDays === 7) {
+                                const daysToSubtract = startDate.dayOfWeek - 1;
+                                onStartDateChange(startDate.subtract({ days: daysToSubtract }));
+                            }
+                        }}
+                    >
+                        <SelectTrigger className='w-full max-w-48'>
+                            <SelectValue placeholder="Select amount of days" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectGroup>
+                                <SelectLabel>Individual days</SelectLabel>
+                                <SelectItem value="1">1 day</SelectItem>
+                                <SelectItem value="3">3 days</SelectItem>
+                            </SelectGroup>
+                            <SelectGroup>
+                                <SelectLabel>Whole week</SelectLabel>
+                                <SelectItem value="5">Work week</SelectItem>
+                                <SelectItem value="7">Full week</SelectItem>
+                            </SelectGroup>
+                        </SelectContent>
+                    </Select>
 
-                                if (newVisibleDays === 5 || newVisibleDays === 7) {
-                                    const daysToSubtract = startDate.dayOfWeek - 1;
-                                    onStartDateChange(startDate.subtract({ days: daysToSubtract }));
-                                }
-                            }}
-                        >
-                            <SelectTrigger className='w-full max-w-48'>
-                                <SelectValue placeholder="Select amount of days" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectGroup>
-                                    <SelectLabel>Individual days</SelectLabel>
-                                    <SelectItem value="1">1 day</SelectItem>
-                                    <SelectItem value="3">3 days</SelectItem>
-                                </SelectGroup>
-                                <SelectGroup>
-                                    <SelectLabel>Whole week</SelectLabel>
-                                    <SelectItem value="5">Work week</SelectItem>
-                                    <SelectItem value="7">Full week</SelectItem>
-                                </SelectGroup>
-                            </SelectContent>
-                        </Select>
-
-                        <Button size="sm" variant="outline"
-                            onClick={() => {
-                                if (visibleDays === 5 || visibleDays === 7) {
-                                    const currentMonday = startDate.subtract({ days: startDate.dayOfWeek - 1 });
-                                    onStartDateChange(currentMonday.subtract({ days: 7 }));
-                                } else {
-                                    onStartDateChange(startDate.subtract({ days: visibleDays }));
-                                }
-                            }}
-                        >
-                            <ChevronsLeft />
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => onStartDateChange(startDate.subtract({ days: 1 }))}>
-                            <ChevronLeft />
-                        </Button>
-                        <Button className='inline-flex' variant="outline" onClick={() => focusNow()}>
-                            Now
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => onStartDateChange(startDate.add({ days: 1 }))}>
-                            <ChevronRight />
-                        </Button>
-                        <Button size="sm" variant="outline"
-                            onClick={() => {
-                                if (visibleDays === 5 || visibleDays === 7) {
-                                    const currentMonday = startDate.add({ days: startDate.dayOfWeek - 1 });
-                                    onStartDateChange(currentMonday.add({ days: 7 }));
-                                } else {
-                                    onStartDateChange(startDate.add({ days: visibleDays }));
-                                }
-                            }}
-                        >
-                            <ChevronsRight />
-                        </Button>
-                    </div>
+                    <Button size="sm" variant="outline"
+                        onClick={() => {
+                            if (visibleDays === 5 || visibleDays === 7) {
+                                const currentMonday = startDate.subtract({ days: startDate.dayOfWeek - 1 });
+                                onStartDateChange(currentMonday.subtract({ days: 7 }));
+                            } else {
+                                onStartDateChange(startDate.subtract({ days: visibleDays }));
+                            }
+                        }}
+                    >
+                        <ChevronsLeft />
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => onStartDateChange(startDate.subtract({ days: 1 }))}>
+                        <ChevronLeft />
+                    </Button>
+                    <Button className='inline-flex' variant="outline" onClick={() => focusNow()}>
+                        Now
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => onStartDateChange(startDate.add({ days: 1 }))}>
+                        <ChevronRight />
+                    </Button>
+                    <Button size="sm" variant="outline"
+                        onClick={() => {
+                            if (visibleDays === 5 || visibleDays === 7) {
+                                const currentMonday = startDate.add({ days: startDate.dayOfWeek - 1 });
+                                onStartDateChange(currentMonday.add({ days: 7 }));
+                            } else {
+                                onStartDateChange(startDate.add({ days: visibleDays }));
+                            }
+                        }}
+                    >
+                        <ChevronsRight />
+                    </Button>
                 </div>
 
             </CardHeader>
