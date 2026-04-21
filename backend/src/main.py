@@ -6,6 +6,7 @@ from fastapi.routing import APIRoute
 from core.database import get_session
 
 from api import resources
+from api import reservations
 
 
 def custom_generate_unique_id(route: APIRoute):
@@ -45,3 +46,6 @@ def test_db_connection(session: Session = Depends(get_session)):
 
 
 app.include_router(resources.router, prefix="/api/resources", tags=["Resources"])
+app.include_router(
+    reservations.router, prefix="/api/reservations", tags=["Reservations"]
+)

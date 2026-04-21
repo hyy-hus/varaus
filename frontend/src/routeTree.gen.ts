@@ -10,15 +10,25 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResourcesRouteImport } from './routes/resources'
+import { Route as ReservationsRouteImport } from './routes/reservations'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ResourcesIndexRouteImport } from './routes/resources.index'
-import { Route as ResourcesCreateRouteImport } from './routes/resources.create'
-import { Route as ResourcesResourceIdUpdateRouteImport } from './routes/resources.$resourceId.update'
+import { Route as ResourcesIndexRouteImport } from './routes/resources/index'
+import { Route as ReservationsIndexRouteImport } from './routes/reservations/index'
+import { Route as CalendarIndexRouteImport } from './routes/calendar/index'
+import { Route as ResourcesCreateRouteImport } from './routes/resources/create'
+import { Route as ReservationsCreateRouteImport } from './routes/reservations/create'
+import { Route as ResourcesResourceIdUpdateRouteImport } from './routes/resources/$resourceId.update'
+import { Route as ReservationsReservationIdUpdateRouteImport } from './routes/reservations/$reservationId.update'
 
 const ResourcesRoute = ResourcesRouteImport.update({
   id: '/resources',
   path: '/resources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReservationsRoute = ReservationsRouteImport.update({
+  id: '/reservations',
+  path: '/reservations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -36,10 +46,25 @@ const ResourcesIndexRoute = ResourcesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ResourcesRoute,
 } as any)
+const ReservationsIndexRoute = ReservationsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ReservationsRoute,
+} as any)
+const CalendarIndexRoute = CalendarIndexRouteImport.update({
+  id: '/calendar/',
+  path: '/calendar/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResourcesCreateRoute = ResourcesCreateRouteImport.update({
   id: '/create',
   path: '/create',
   getParentRoute: () => ResourcesRoute,
+} as any)
+const ReservationsCreateRoute = ReservationsCreateRouteImport.update({
+  id: '/create',
+  path: '/create',
+  getParentRoute: () => ReservationsRoute,
 } as any)
 const ResourcesResourceIdUpdateRoute =
   ResourcesResourceIdUpdateRouteImport.update({
@@ -47,29 +72,49 @@ const ResourcesResourceIdUpdateRoute =
     path: '/$resourceId/update',
     getParentRoute: () => ResourcesRoute,
   } as any)
+const ReservationsReservationIdUpdateRoute =
+  ReservationsReservationIdUpdateRouteImport.update({
+    id: '/$reservationId/update',
+    path: '/$reservationId/update',
+    getParentRoute: () => ReservationsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/reservations': typeof ReservationsRouteWithChildren
   '/resources': typeof ResourcesRouteWithChildren
+  '/reservations/create': typeof ReservationsCreateRoute
   '/resources/create': typeof ResourcesCreateRoute
+  '/calendar/': typeof CalendarIndexRoute
+  '/reservations/': typeof ReservationsIndexRoute
   '/resources/': typeof ResourcesIndexRoute
+  '/reservations/$reservationId/update': typeof ReservationsReservationIdUpdateRoute
   '/resources/$resourceId/update': typeof ResourcesResourceIdUpdateRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/reservations/create': typeof ReservationsCreateRoute
   '/resources/create': typeof ResourcesCreateRoute
+  '/calendar': typeof CalendarIndexRoute
+  '/reservations': typeof ReservationsIndexRoute
   '/resources': typeof ResourcesIndexRoute
+  '/reservations/$reservationId/update': typeof ReservationsReservationIdUpdateRoute
   '/resources/$resourceId/update': typeof ResourcesResourceIdUpdateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/reservations': typeof ReservationsRouteWithChildren
   '/resources': typeof ResourcesRouteWithChildren
+  '/reservations/create': typeof ReservationsCreateRoute
   '/resources/create': typeof ResourcesCreateRoute
+  '/calendar/': typeof CalendarIndexRoute
+  '/reservations/': typeof ReservationsIndexRoute
   '/resources/': typeof ResourcesIndexRoute
+  '/reservations/$reservationId/update': typeof ReservationsReservationIdUpdateRoute
   '/resources/$resourceId/update': typeof ResourcesResourceIdUpdateRoute
 }
 export interface FileRouteTypes {
@@ -77,31 +122,47 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/reservations'
     | '/resources'
+    | '/reservations/create'
     | '/resources/create'
+    | '/calendar/'
+    | '/reservations/'
     | '/resources/'
+    | '/reservations/$reservationId/update'
     | '/resources/$resourceId/update'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
+    | '/reservations/create'
     | '/resources/create'
+    | '/calendar'
+    | '/reservations'
     | '/resources'
+    | '/reservations/$reservationId/update'
     | '/resources/$resourceId/update'
   id:
     | '__root__'
     | '/'
     | '/about'
+    | '/reservations'
     | '/resources'
+    | '/reservations/create'
     | '/resources/create'
+    | '/calendar/'
+    | '/reservations/'
     | '/resources/'
+    | '/reservations/$reservationId/update'
     | '/resources/$resourceId/update'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  ReservationsRoute: typeof ReservationsRouteWithChildren
   ResourcesRoute: typeof ResourcesRouteWithChildren
+  CalendarIndexRoute: typeof CalendarIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -111,6 +172,13 @@ declare module '@tanstack/react-router' {
       path: '/resources'
       fullPath: '/resources'
       preLoaderRoute: typeof ResourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reservations': {
+      id: '/reservations'
+      path: '/reservations'
+      fullPath: '/reservations'
+      preLoaderRoute: typeof ReservationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -134,12 +202,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResourcesIndexRouteImport
       parentRoute: typeof ResourcesRoute
     }
+    '/reservations/': {
+      id: '/reservations/'
+      path: '/'
+      fullPath: '/reservations/'
+      preLoaderRoute: typeof ReservationsIndexRouteImport
+      parentRoute: typeof ReservationsRoute
+    }
+    '/calendar/': {
+      id: '/calendar/'
+      path: '/calendar'
+      fullPath: '/calendar/'
+      preLoaderRoute: typeof CalendarIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/resources/create': {
       id: '/resources/create'
       path: '/create'
       fullPath: '/resources/create'
       preLoaderRoute: typeof ResourcesCreateRouteImport
       parentRoute: typeof ResourcesRoute
+    }
+    '/reservations/create': {
+      id: '/reservations/create'
+      path: '/create'
+      fullPath: '/reservations/create'
+      preLoaderRoute: typeof ReservationsCreateRouteImport
+      parentRoute: typeof ReservationsRoute
     }
     '/resources/$resourceId/update': {
       id: '/resources/$resourceId/update'
@@ -148,8 +237,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResourcesResourceIdUpdateRouteImport
       parentRoute: typeof ResourcesRoute
     }
+    '/reservations/$reservationId/update': {
+      id: '/reservations/$reservationId/update'
+      path: '/$reservationId/update'
+      fullPath: '/reservations/$reservationId/update'
+      preLoaderRoute: typeof ReservationsReservationIdUpdateRouteImport
+      parentRoute: typeof ReservationsRoute
+    }
   }
 }
+
+interface ReservationsRouteChildren {
+  ReservationsCreateRoute: typeof ReservationsCreateRoute
+  ReservationsIndexRoute: typeof ReservationsIndexRoute
+  ReservationsReservationIdUpdateRoute: typeof ReservationsReservationIdUpdateRoute
+}
+
+const ReservationsRouteChildren: ReservationsRouteChildren = {
+  ReservationsCreateRoute: ReservationsCreateRoute,
+  ReservationsIndexRoute: ReservationsIndexRoute,
+  ReservationsReservationIdUpdateRoute: ReservationsReservationIdUpdateRoute,
+}
+
+const ReservationsRouteWithChildren = ReservationsRoute._addFileChildren(
+  ReservationsRouteChildren,
+)
 
 interface ResourcesRouteChildren {
   ResourcesCreateRoute: typeof ResourcesCreateRoute
@@ -170,7 +282,9 @@ const ResourcesRouteWithChildren = ResourcesRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  ReservationsRoute: ReservationsRouteWithChildren,
   ResourcesRoute: ResourcesRouteWithChildren,
+  CalendarIndexRoute: CalendarIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
