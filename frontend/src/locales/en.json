@@ -17,5 +17,20 @@
         "nameLabel": "Name",
         "namePlaceholder": "e.g., Meeting Room A",
         "successToast": "Resource \"{{name}}\" created successfully!"
+    },
+    "reservations": {
+        "title": "Reservations",
+        "createTitle": "Create a reservation",
+        "nameLabel": "Reserver",
+        "namePlaceholder": "Fresher Party",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "A party for all the new members of the Academic Calendar Society",
+        "reserverLabel": "Reserver",
+        "reserverPlaceholder": "Academic Calendar Society",
+        "reserverEmailLabel": "Reserver e-mail",
+        "reserverEmailPlaceholder": "board.acs@helsinki.fi",
+        "reserverEmailDescription": "This email address will be used for any possible communication about this reservation. Please use an address that will definitely reach you!",
+        "reserverPhoneLabel": "Reserver phone number",
+        "reserverPhonePlaceholder": "+358 12 345 6789"
     }
 }
